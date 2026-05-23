@@ -4,6 +4,20 @@ We don't (yet) verify the SHA — that requires file access and is a
 ``--strict`` feature. The path-membership check alone catches the common
 failure: a figure regenerated under a different name, or a one-off plot
 shipped without being registered.
+
+Path matching is forgiving in the same ways LaTeX is forgiving:
+
+* leading ``./`` is stripped (LaTeX treats ``./foo`` and ``foo`` identically);
+* the ``\\includegraphics{...}`` argument may omit the extension (LaTeX
+  resolves it through ``\\DeclareGraphicsExtensions``), so we also try
+  appending each known graphics extension to the tex-side path and
+  matching against the manifest;
+* conversely, if the manifest registered an extensionless path and the
+  document spells out the extension, we strip the document's extension
+  and re-check.
+
+Anything more elaborate (multiple ``\\graphicspath`` roots, absolute path
+resolution against the manifest's project root) is out of scope for v0.1.
 """
 
 from __future__ import annotations
@@ -14,6 +28,33 @@ from scitexlintr._manifest import Manifest
 from scitexlintr._rules._base import Rule
 
 CODE = "unfingerprinted-figure"
+
+# Extensions LaTeX's graphics package resolves by default. Order matches
+# graphicx's typical search order.
+_GRAPHICS_EXTENSIONS = (".pdf", ".png", ".jpg", ".jpeg", ".eps", ".ps", ".svg")
+
+
+def _normalize(path: str) -> str:
+    p = path.strip()
+    while p.startswith("./"):
+        p = p[2:]
+    return p
+
+
+def _path_matches_manifest(tex_path: str, manifest: Manifest) -> bool:
+    normalized_index = {_normalize(k) for k in manifest.by_figure_path}
+    tex = _normalize(tex_path)
+    if tex in normalized_index:
+        return True
+    # The document omitted an extension that the manifest spelled out.
+    for ext in _GRAPHICS_EXTENSIONS:
+        if tex + ext in normalized_index:
+            return True
+    # The manifest omitted the extension the document spelled out.
+    for ext in _GRAPHICS_EXTENSIONS:
+        if tex.endswith(ext) and tex[: -len(ext)] in normalized_index:
+            return True
+    return False
 
 
 def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
@@ -26,7 +67,7 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
         path = call.args[-1].text.strip()
         if not path:
             continue
-        if path in manifest.by_figure_path:
+        if _path_matches_manifest(path, manifest):
             continue
         line, col = doc.lookup(call.name_start)
         findings.append(

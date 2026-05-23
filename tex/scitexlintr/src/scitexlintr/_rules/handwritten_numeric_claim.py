@@ -20,19 +20,25 @@ from scitexlintr._rules._base import Rule
 
 CODE = "handwritten-numeric-claim"
 
-# A handwritten claim looks like ``n = 23``, ``p < 0.05``, ``r = 0.82``.
+# A handwritten claim looks like ``n = 23``, ``p = 1e-8``, ``r = 0.82``.
 # We require:
 #   * a single-letter prefix from {n N p P r R}, with a word boundary before it
-#   * optional whitespace + (=|<|>) + optional whitespace
+#   * optional whitespace + ``=`` + optional whitespace
 #   * a numeric token (incl. scientific notation)
 # We restrict to single-letter prefixes so that ``Bagamery n=23`` matches
-# but ``mean=23`` does not.
-_PATTERN = re.compile(
+# but ``mean=23`` does not. Comparison operators (``<``, ``>``) are owned
+# by the threshold rules — a single regex per failure mode keeps the rule
+# catalog readable.
+#
+# This pattern is also imported by ``unsourced-numeric-token`` to skip
+# numbers it would otherwise re-flag. Single source of truth: edit here.
+HANDWRITTEN_PATTERN = re.compile(
     r"(?<![A-Za-z@\\])"
     r"(?P<prefix>[nNpPrR])"
     r"\s*=\s*"
     r"(?P<num>\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)"
 )
+_PATTERN = HANDWRITTEN_PATTERN
 
 
 def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:

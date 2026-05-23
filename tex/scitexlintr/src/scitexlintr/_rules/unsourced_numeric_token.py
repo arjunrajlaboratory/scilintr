@@ -20,6 +20,7 @@ from scitexlintr._doc import TexDoc
 from scitexlintr._finding import Finding
 from scitexlintr._manifest import Manifest, values_equal_as_snapshot
 from scitexlintr._rules._base import Rule
+from scitexlintr._rules.handwritten_numeric_claim import HANDWRITTEN_PATTERN
 
 CODE = "unsourced-numeric-token"
 
@@ -48,14 +49,25 @@ _REFERENCE_RE = re.compile(
     re.IGNORECASE,
 )
 
-# ``[nNpPrRkK] = `` immediately before the number means handwritten claim
-# is handling it — don't double-flag.
-_HANDWRITTEN_PREFIX_RE = re.compile(r"(?<![A-Za-z@\\])[nNpPrRkK]\s*[=<>]\s*$")
+# The set of numeric positions already accounted for by
+# ``handwritten-numeric-claim``. We use the same regex as that rule (single
+# source of truth in ``handwritten_numeric_claim.HANDWRITTEN_PATTERN``) so
+# the two rules can't drift apart — a previous version suppressed
+# ``[nNpPrRkK]\s*[=<>]`` here while the handwritten rule only fires on
+# ``[nNpPrR]\s*=``, leaving cases like ``k = 2`` silently unreported.
 
 
 def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
     findings: list[Finding] = []
     seen: set[int] = set()
+    # Precompute positions of numbers already owned by handwritten-numeric-claim
+    # using that rule's own regex — single source of truth.
+    handwritten_num_starts: set[int] = {
+        m.start("num")
+        for m in HANDWRITTEN_PATTERN.finditer(
+            doc.stripped, doc.body_start, doc.body_end
+        )
+    }
     for m in _NUMBER_RE.finditer(doc.stripped, doc.body_start, doc.body_end):
         offset = m.start()
         if offset in seen:
@@ -73,7 +85,7 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
             continue
 
         # Handwritten n = / p = / r = -> handwritten-numeric-claim.
-        if _is_handwritten_context(doc.stripped, offset, doc.body_start):
+        if offset in handwritten_num_starts:
             continue
 
         # Tail of a scientific-notation number, e.g. the "8" inside "1e-8".
@@ -130,11 +142,6 @@ def _is_threshold_context(text: str, offset: int, body_start: int) -> bool:
             if after >= len(text) or not (text[after].isalpha() or text[after] == "@"):
                 return True
     return False
-
-
-def _is_handwritten_context(text: str, offset: int, body_start: int) -> bool:
-    prefix = text[max(body_start, offset - 8) : offset]
-    return _HANDWRITTEN_PREFIX_RE.search(prefix) is not None
 
 
 def _is_reference_context(text: str, offset: int, body_start: int) -> bool:

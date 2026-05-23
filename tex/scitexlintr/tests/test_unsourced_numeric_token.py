@@ -49,6 +49,18 @@ def test_unsourced_passes_handwritten_context(has_finding, wrap_body):
     assert not has_finding(src, RULE)
 
 
+def test_unsourced_flags_k_equals(has_finding, wrap_body):
+    """Codex P2 (drift between rules): ``k = 2`` must be reported.
+
+    A previous version suppressed it on the grounds that handwritten would
+    catch it, but handwritten only fires on ``[nNpPrR]\\s*=``. The two
+    rules now share a single regex (``HANDWRITTEN_PATTERN``) so this case
+    falls through to unsourced as intended.
+    """
+    src = wrap_body("We picked k = 2 as the seed count.")
+    assert has_finding(src, RULE)
+
+
 def test_unsourced_respects_waiver(has_finding, wrap_body):
     src = wrap_body(
         "% ANALYSIS_OK[unsourced-numeric-token]: legacy QC threshold from upstream\n"
