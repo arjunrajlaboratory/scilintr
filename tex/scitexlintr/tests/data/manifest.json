@@ -1,0 +1,66 @@
+{
+  "numbers": [
+    {
+      "id": "diff-expr.n_samples",
+      "value": 48,
+      "label_canonical": "number of cells passing QC",
+      "label_aliases_forbidden": ["total cells", "total barcodes"]
+    },
+    {
+      "id": "diff-expr.n_control",
+      "value": 24
+    },
+    {
+      "id": "diff-expr.n_treated",
+      "value": 24
+    },
+    {
+      "id": "diff-expr.fdr_threshold",
+      "value": 0.05,
+      "label_canonical": "FDR threshold"
+    },
+    {
+      "id": "diff-expr.n_de_genes",
+      "value": 317
+    },
+    {
+      "id": "diff-expr.n_genes_after_filtering",
+      "value": "15,122",
+      "label_canonical": "number of genes after filtering"
+    },
+    {
+      "id": "diff-expr.contrast_phrase",
+      "value": "treated versus control"
+    },
+    {
+      "id": "diff-expr:n_replicates",
+      "value": 12,
+      "label_canonical": "number of biological replicates"
+    },
+    {
+      "id": "diff-expr.exact_accuracy",
+      "value": 0.973,
+      "label_canonical": "exact match accuracy",
+      "label_aliases_forbidden": ["accuracy"]
+    }
+  ],
+  "figures": [
+    {
+      "id": "volcano_de",
+      "path": "figures/volcano_de.pdf",
+      "sha256": "b4e3c9d2aaaa1111bbbb2222cccc3333dddd4444eeee5555ffff66667777"
+    },
+    {
+      "id": "qc_summary",
+      "path": "figures/qc_summary.png",
+      "sha256": "11112222333344445555666677778888999900001111222233334444aaaa"
+    }
+  ],
+  "terms": [
+    {
+      "id": "BCLRT",
+      "expansion": "branch-coherency log-likelihood ratio test",
+      "overloaded_warning": "Not a Wilks-sense LRT; threshold 10 corresponds to Wilks 20."
+    }
+  ]
+}
