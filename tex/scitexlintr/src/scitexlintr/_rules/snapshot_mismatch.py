@@ -72,7 +72,40 @@ def _format_for_fix(value: object) -> str:
         return "true" if value else "false"
     if isinstance(value, float):
         return repr(value)
+    if isinstance(value, str):
+        return _tex_escape(value)
     return str(value)
+
+
+# Characters that need a leading backslash to render as their literal selves
+# in LaTeX prose. Ordered: ``\\`` first so it doesn't double-escape its own
+# replacements. ``{`` and ``}`` are intentionally NOT escaped — they have
+# meaning even inside argument groups and a snapshot containing braces is
+# almost certainly broken upstream.
+_TEX_ESCAPE_MAP = [
+    ("\\", "\\textbackslash{}"),  # not strictly correct but never appears in numeric snapshots
+    ("%", "\\%"),
+    ("&", "\\&"),
+    ("_", "\\_"),
+    ("#", "\\#"),
+    ("$", "\\$"),
+    ("~", "\\textasciitilde{}"),
+    ("^", "\\textasciicircum{}"),
+]
+
+
+def _tex_escape(s: str) -> str:
+    """Escape TeX-special characters in a string snapshot.
+
+    The unescaped form of a value like ``"50% done"`` would turn the rest
+    of the line into a comment when written into the source. This is a
+    minimal escaper covering the characters that BREAK the parse, not a
+    full LaTeX renderer.
+    """
+    out = s
+    for ch, esc in _TEX_ESCAPE_MAP:
+        out = out.replace(ch, esc)
+    return out
 
 
 rule = Rule(code=CODE, check=_check, requires_manifest=True)

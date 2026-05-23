@@ -33,7 +33,9 @@ _THRESHOLD_RE = re.compile(
     r"\\gg(?![A-Za-z@])"
     r")"
     r"\s*"
-    r"(?P<num>\d+(?:\.\d+)?)"
+    # Scientific notation must be matched as one token: ``1e-8`` and
+    # ``2.5e+10`` are common threshold spellings in scientific prose.
+    r"(?P<num>\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)"
 )
 
 

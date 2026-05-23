@@ -79,6 +79,23 @@ def test_unsourced_passes_handwritten_context(has_finding, wrap_body):
     assert not has_finding(src, RULE)
 
 
+def test_unsourced_flags_scientific_notation(wrap_body):
+    """Codex re-review P2: ``_NUMBER_RE`` had no exponent path, so a
+    literal like ``1e-8`` in prose passed silently — a blind spot for
+    the very format scientific reports use most."""
+    from scitexlintr import lint_tex, parse_manifest
+
+    manifest = parse_manifest({"numbers": [{"id": "n_samples", "value": 48}]})
+    src = wrap_body("Coverage dropped to 1e-8 in the affected wells.")
+    findings = lint_tex(src, filename="t.tex", manifest=manifest)
+    assert any(
+        f.rule == "unsourced-numeric-token" and "1e-8" in f.message for f in findings
+    ), (
+        f"unsourced did not see '1e-8'; findings: "
+        f"{[(f.rule, f.message[:60]) for f in findings]}"
+    )
+
+
 def test_unsourced_skips_negative_when_manifest_has_negative(wrap_body):
     """Self-review bug: _NUMBER_RE captured only the digits, so a negative
     manifest value like -0.015 fired raw-generated-value on '-0.015' AND

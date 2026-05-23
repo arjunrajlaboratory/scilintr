@@ -45,6 +45,51 @@ def test_apply_fixes_idempotent_on_correct_snapshot(manifest):
     assert new_src == src
 
 
+def test_apply_fixes_escapes_percent_in_replacement():
+    """Codex re-review P1: a string manifest value containing ``%`` (or
+    other TeX-specials) was written verbatim, turning the closing brace
+    into a comment and corrupting the source. We now TeX-escape
+    replacements before writing them."""
+    from scitexlintr import lint_tex, parse_manifest
+    src = (
+        "\\documentclass{article}\n"
+        "\\newcommand{\\SciText}[2]{#1}\n"
+        "\\newcommand{\\Status}{50% done}\n"
+        "\\begin{document}\n"
+        "Progress: \\SciText{\\Status}{stale text} indicator.\n"
+        "\\end{document}\n"
+    )
+    manifest = parse_manifest({"numbers": [{"id": "status", "value": "50% done"}]})
+    findings = lint_tex(src, filename="t.tex", manifest=manifest)
+    new_src, n = apply_fixes(src, findings)
+    assert n == 1
+    # The replacement (second arg of \SciText) must escape '%' so the
+    # line still parses. (The preamble's newcommand definition is
+    # unrelated and may legitimately contain the unescaped form.)
+    assert "\\SciText{\\Status}{50\\% done}" in new_src, (
+        f"unescaped %; got: {new_src!r}"
+    )
+
+
+def test_apply_fixes_escapes_other_tex_specials():
+    """Underscores, ampersands, hashes, $ all need escaping in a string
+    snapshot to keep the source compilable."""
+    from scitexlintr import lint_tex, parse_manifest
+    src = (
+        "\\documentclass{article}\n"
+        "\\newcommand{\\SciText}[2]{#1}\n"
+        "\\newcommand{\\Cohort}{a_b & c\\#1}\n"
+        "\\begin{document}\n"
+        "Cohort: \\SciText{\\Cohort}{stale}.\n"
+        "\\end{document}\n"
+    )
+    manifest = parse_manifest({"numbers": [{"id": "cohort", "value": "a_b & c#1"}]})
+    findings = lint_tex(src, filename="t.tex", manifest=manifest)
+    new_src, n = apply_fixes(src, findings)
+    assert n == 1
+    assert r"a\_b \& c\#1" in new_src, f"specials not escaped; got: {new_src!r}"
+
+
 def test_apply_fixes_skips_when_snapshot_contains_comment(manifest):
     """Self-review bug: Fix offsets came from the stripped string but
     apply_fixes runs against the ORIGINAL source. If the snapshot brace

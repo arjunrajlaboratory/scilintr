@@ -30,6 +30,11 @@ _NUMBER_RE = re.compile(
     r"(?<![\w.])"
     r"(?:\d{1,3}(?:,\d{3})+|\d+)"
     r"(?:\.\d+)?"
+    # Scientific notation is common in p-values / effect sizes; include
+    # it so ``1e-8`` is matched as a single numeric token (and so the
+    # _is_scientific_tail check that suppresses the trailing digit of
+    # the old behavior is no longer needed).
+    r"(?:[eE][+-]?\d+)?"
     r"(?![\w.])"
 )
 
