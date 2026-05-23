@@ -1,0 +1,30 @@
+name: Python tests
+
+on:
+  push:
+    paths:
+      - 'py/**'
+      - '.github/workflows/py-check.yaml'
+  pull_request:
+    paths:
+      - 'py/**'
+      - '.github/workflows/py-check.yaml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: py/scilintr
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package
+        run: pip install -e ".[dev]"
+
+      - name: Run tests
+        run: pytest -v

@@ -1,0 +1,34 @@
+# Example .scilintr.yml — stage tags and rule overrides.
+
+stages:
+  blind_qc:
+    files:
+      - scripts/run_blind_qc.R
+      - scripts/qc_helpers.R
+    label_policy: forbidden
+
+  selection:
+    files:
+      - analysis/*/run_*select*.R
+      - analysis/*/score_*.R
+      - analysis/*/run_root_stage.R
+      - analysis/*/run_branch_stage.R
+    label_policy: forbidden
+
+  evaluation:
+    files:
+      - analysis/*/evaluate_*.R
+      - analysis/*/make_figures.R
+    label_policy: allowed
+
+  library:
+    files:
+      - algorithms/**/*.R
+      - "**/_lib.R"
+    label_policy: forbidden
+
+rules:
+  R026:
+    severity: warning      # dead-code: noisy in R, advisory only
+  R028:
+    severity: warning      # partial cache fingerprint: heuristic

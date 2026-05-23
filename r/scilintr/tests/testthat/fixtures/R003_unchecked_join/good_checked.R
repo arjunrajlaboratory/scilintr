@@ -1,0 +1,7 @@
+library(dplyr)
+metadata <- read.csv("metadata.csv")
+batch_info <- read.csv("batch_info.csv")
+n_before <- nrow(metadata)
+metadata <- left_join(metadata, batch_info, by = "sample_id")
+stopifnot(nrow(metadata) == n_before)
+stopifnot(!anyDuplicated(metadata$sample_id))

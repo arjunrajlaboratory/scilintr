@@ -1,0 +1,48 @@
+# Example analysis_labels.yml — declare label sources, label columns,
+# and synonyms so the linter can detect label references in
+# selection-stage code.
+
+label_sources:
+  - name: cell_labels
+    kind: file
+    path: data/cell_labels.tsv
+    role: biological_labels
+
+labels:
+  treatment:
+    role: experimental_condition
+    source: cell_labels
+    column: treatment
+    synonyms:
+      - condition
+      - group
+      - arm
+      - tx
+
+  diagnosis:
+    role: phenotype
+    source: cell_labels
+    column: diagnosis
+    synonyms:
+      - phenotype
+      - disease_status
+      - case_control
+      - status
+
+  ground_truth:
+    role: ground_truth
+    source: cell_labels
+    column: legacy_branch2_clone
+    synonyms:
+      - is_gt
+      - is_target
+      - truth_c1
+      - cell_type
+      - gt_label
+
+allowed_blind_covariates:
+  - sample_id
+  - cell_id
+  - batch
+  - lane
+  - donor

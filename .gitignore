@@ -1,0 +1,26 @@
+# R
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+*.tar.gz
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.venv/
+venv/
+build/
+dist/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store

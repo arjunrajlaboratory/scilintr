@@ -1,0 +1,5 @@
+library(DESeq2)
+de_model <- yaml::read_yaml("config/de_model.yml")
+design_formula <- as.formula(de_model$formula)
+dds <- DESeqDataSet(se, design = design_formula)
+results(dds, contrast = c(de_model$factor, de_model$target, de_model$reference))

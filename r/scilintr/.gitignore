@@ -1,0 +1,7 @@
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+inst/doc
+docs/
+*.tar.gz

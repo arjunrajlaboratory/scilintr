@@ -1,0 +1,5 @@
+library(lme4)
+df <- read.csv("data.csv")
+fit <- glmer(y ~ x1 + (1 | subject), data = df, family = binomial)
+stopifnot(is.null(fit@optinfo$conv$lme4$messages))
+beta <- fixef(fit)
