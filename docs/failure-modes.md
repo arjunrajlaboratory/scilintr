@@ -243,6 +243,18 @@ Numeric rule IDs are language-agnostic — the "R" prefix stands for
 | R038 | analysis | "Best of either side" reporting |
 | R039 | both | Recursive call with constant gates |
 | R040 | analysis | "Blind" function name with label refs in body |
+| R041 | code | Return NULL/NA on missing input (silent absence) |
+| R042 | code | CLI flag declared but never read |
+| R043 | code | Config loaded (`yaml::read_yaml`, `jsonlite::fromJSON`) without schema validation |
+| R044 | code | Boolean mask built from empty-string sentinel |
+
+Rules R041–R044 were originally written for the Python sibling
+(`py/scilintr/`) and ported to R when the same patterns appeared in
+research-R code. Each catches a "silent shrug" — a code path that
+treats a missing or malformed input as an acceptable empty signal
+instead of failing loudly. R041 was confirmed to fire on a real
+`if (!file.exists(f)) return(NULL)` in `build_report.R` during the
+smoke test that followed implementation.
 
 ## What's not captured
 

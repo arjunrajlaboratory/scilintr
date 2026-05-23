@@ -5,11 +5,13 @@ Static analysis for R scientific data analysis code.
 Flags patterns that often correspond to hidden scientific commitments:
 
 - silent `tryCatch` error swallowing
+- `if (!file.exists(path)) return(NULL)` silent absence propagation
 - smuggled function-signature defaults
 - label leakage in selection-stage code
 - magic-eps floors in BIC / log formulas
 - shadow-overwrite of sourced helpers
-- ... and 35 other rules.
+- optparse flags declared but never read
+- ... and 37 other rules (R001–R044).
 
 Designed for agentic coding workflows: **high recall over precision**,
 structured `ANALYSIS_OK[category]:` waivers as the audit trail. Many
@@ -25,9 +27,12 @@ catalogue of bugs each rule catches.
 
 ## Status
 
-v0.0.0.9000 — fixture-driven TDD scaffold. Rules R001–R040 have test
-fixtures; rule implementations are stubs that will be filled in one
-rule at a time, fixture-by-fixture.
+v0.1.0 — all 40+ rules implemented (R001–R044, with R020/R025/R026
+cross-file). 155 fixture tests passing. Rules R041–R044 were ported
+back from the Python sibling (`py/scilintr/`) — they catch failure
+modes (silent absence propagation, unconsumed CLI flags, unvalidated
+config, empty-string sentinel masks) that the Python package
+encountered first in real code.
 
 ## Usage
 

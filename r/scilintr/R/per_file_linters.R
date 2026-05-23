@@ -45,7 +45,11 @@ per_file_linters <- function() {
     R037 = composite_weights_linter(),
     R038 = symmetric_best_linter(),
     R039 = constant_gates_recursion_linter(),
-    R040 = blind_name_antipattern_linter()
+    R040 = blind_name_antipattern_linter(),
+    R041 = return_null_on_missing_linter(),
+    R042 = unconsumed_cli_flag_linter(),
+    R043 = unvalidated_config_linter(),
+    R044 = sentinel_mask_linter()
   )
 }
 

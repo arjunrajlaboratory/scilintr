@@ -40,6 +40,76 @@ Concrete consequences for rule design:
 
 Humans can still use these linters — the structured waiver mechanism is helpful in code review either way — but the design tradeoffs (recall > precision, aggressive structural pattern matching, fine-grained category vocabulary) are tuned for an agent-driven loop where the cost of "look at this and decide" is near zero.
 
+## Implementation status
+
+Two real implementations live in the [`scilintr`](https://github.com/arjunrajlaboratory/scilintr) repo:
+
+- **R**: `r/scilintr/` — built on `lintr` + `xmlparsedata` + `xml2`; 40 rules implemented (R001–R044, with R020/R025/R026 cross-file).
+- **Python**: `py/scilintr/` — built on the stdlib `ast` module; 27 rules implemented covering kebab-case codes (`broad-exception`, `unchecked-merge`, …).
+
+Both expose the same waiver mechanism (`# ANALYSIS_OK[category]: explanation`),
+the same `Finding` record shape (`rule, line, col, message, severity,
+filename`), and the same CLI surface (point at files or directories, get
+findings; `--no-waivers` for audit mode; `--summary` for per-rule counts).
+
+The two implementations are deliberately not 1:1. The R side has more
+rules because most of the leakage-driven failure modes (R029-readcsv
+mangling, R030-silent-tryCatch, the R-specific shadow-overwrite /
+scriptwise cross-file drift rules) come from R-style research codebases.
+The Python side covers the universal scientific-code failure modes plus
+a few Python-specific ones (`runtime-assert`, `unconsumed-cli-flag`,
+`unvalidated-config`, `sentinel-mask-assignment`).
+
+### Rule-code cross-reference
+
+R rule code → Python rule code (kebab-case) for rules that exist in both:
+
+| R | Python | Pattern |
+|---|---|---|
+| R001 | `positional-metadata-access` | Raw positional column/row access |
+| R002 | `magic-threshold` | Magic numeric thresholds |
+| R003 | `unchecked-merge` | Joins without cardinality checks |
+| R004 | `positional-sample-alignment` | Sample alignment by row order |
+| R005 | `unannotated-filter` | Filtering without a ledger |
+| R006 | `unannotated-missingness` | Missingness coercion without justification |
+| R007 | `broad-exception`, `silent-pass` | Broad except / silent try |
+| R008 | `implicit-file-selection` | Glob/`latest`/`max(mtime)` file pick |
+| R009 | `unchecked-cache` | Cache reuse without fingerprint |
+| R010 | `synthetic-data-generation` | Random synthetic data in main analysis |
+| R011 | `unseeded-stochastic` | Stochastic method without seed |
+| R012 | `label-in-blind-stage` | Label terms in blind/selection stages |
+| R013 | `hardcoded-design-formula` | Literal design formula |
+| R014 | `unannotated-transform` | `log1p` / `zscore` / `clip` without justification |
+| R015 | `ambiguous-layer-access` | `adata.X` without explicit layer |
+| R016 | `hardcoded-sample-ids` | Sample IDs as literals |
+| R017 | `warning-suppression` | `warnings.filterwarnings("ignore")` / `suppressWarnings` |
+| R018 | `unchecked-model-fit` | `.fit()` without convergence check |
+| R019 | `plot-side-effect-filter` | Plot code that mutates the data frame |
+| R025 | `duplicate-parameter-source` (cross-file) | Same param, conflicting defaults |
+| R041 | `return-none-on-missing-input` | Silent absence propagation |
+| R042 | `unconsumed-cli-flag` | optparse / argparse flag never read |
+| R043 | `unvalidated-config` | YAML/JSON config without schema check |
+| R044 | `sentinel-mask-assignment` | Empty-string / sentinel mask construction |
+
+R-only rules (no Python equivalent, because R-specific or research-R-specific):
+R020 (shadow-overwrite), R021 (patient ID in lib), R022 (seed in loop),
+R023 (plot-clip), R024 (smuggled default), R026 (dead code), R027 (env
+validator asymmetry), R028 (partial cache fingerprint), R029 (read.csv
+column mangling), R030 (silent `tryCatch`), R031 (magic-eps floor in
+log/BIC), R032 (label tie-break), R033 (label ref in selection), R034
+(label+score CSV co-residence), R035 (label-tainted input read), R036
+(threshold near label), R037 (composite weights ≥3), R038 (symmetric
+best-of-either-side), R039 (constant gates across recursion), R040
+(blind-name antipattern).
+
+Python-only rules: `runtime-assert` (Python's `-O` stripping is the
+specific failure mode), `duplicate-parameter-source` (within-file
+variant — R has cross-file R025).
+
+When porting future rules: assume new rules land in both implementations
+unless the failure mode is genuinely language-specific. Add R fixtures
+first, then implement R; do the same for Python.
+
 ## High-level strategy
 
 Use a project-specific scientific linter that scans code for suspicious analysis patterns. The linter is cheap and should run frequently: during agent iterations, in pre-commit hooks, in CI, or before a coding agent reports a result.
@@ -1549,6 +1619,209 @@ evaluate_blind_selection_against_labels <- function(selected_calls, labels) { ..
 ```
 
 The strong remediation is to rename: a function that joins labels should be `evaluate_*` or `audit_*`, never `*_blind_*`.
+
+## Rules ported from the Python implementation
+
+The next rules were originally written for the Python linter and ported back to R when the same failure mode was observed in research-R code.
+
+### 41. Return-None / Return-NULL on missing input
+
+Pattern: a function whose first action is "if the input file is missing, return early with a null-like value." The caller then propagates `NULL`/`None` through downstream merges, and the analysis silently runs on a smaller frame.
+
+This is a fallback wearing a different costume — the explicit-fallback rule (R007 / `broad-exception`) catches `tryCatch(... fallback_path ...)`, but it doesn't catch the cleaner-looking `if (!file.exists(path)) return(NULL)`. Same end state: the missing input is treated as an acceptable empty signal instead of a hard failure.
+
+Flag (R):
+
+```r
+load_panel <- function(path) {
+  if (!file.exists(path)) return(NULL)
+  read.csv(path)
+}
+
+load_panel <- function(path) {
+  if (!file.exists(path)) return(NA)
+  read.csv(path)
+}
+```
+
+Flag (Python):
+
+```python
+def load_panel(path):
+    if not path.exists():
+        return None
+    return pd.read_csv(path)
+```
+
+Better: raise an explicit error, or make the optional-input contract obvious at the call site:
+
+```r
+load_panel <- function(path) {
+  if (!file.exists(path)) stop("panel file not found: ", path)
+  read.csv(path)
+}
+```
+
+Allowed with structured waiver:
+
+```r
+# ANALYSIS_OK[optional-input]: panel is an optional annotation; downstream
+# code checks is.null(panel) explicitly and uses the unannotated branch.
+if (!file.exists(path)) return(NULL)
+```
+
+### 42. Unconsumed CLI flag
+
+Pattern: a command-line option is declared but its parsed attribute is never read. The flag reaches the parsed-args object and is dropped on the floor. Callers who pass `--foo=bar` see no effect, and the analysis silently used the default.
+
+This commonly happens during refactors: an option was renamed elsewhere, but the declaration site wasn't removed. The flag becomes a UX trap — users (and agents) think they're configuring something they aren't.
+
+Flag (R, optparse):
+
+```r
+opt_list <- list(
+  optparse::make_option("--top-modules", default = 25L),
+  optparse::make_option("--band-lo",     default = 0.22)   # never read below
+)
+opt <- optparse::parse_args(optparse::OptionParser(option_list = opt_list))
+# ... rest of script reads opt$top_modules, but never opt$band_lo
+```
+
+Flag (Python, argparse):
+
+```python
+parser.add_argument("--top-modules", default=25)
+parser.add_argument("--band-lo", default=0.22)   # never read below
+args = parser.parse_args()
+# ... reads args.top_modules, never args.band_lo
+```
+
+Linter sketch:
+
+1. Find every `optparse::make_option("--kebab-name", ...)` (R) or `parser.add_argument("--kebab-name", ...)` (Python). Compute the destination name (`kebab-name` → `kebab_name`).
+2. Find the variable that holds the parsed-args result (`opt <- parse_args(...)` / `args = parser.parse_args()`).
+3. Scan the file for any attribute / `$` / `[[...]]` access on that variable that reads the dest name.
+4. Flag any declared dest that's never read.
+
+Allowed with structured waiver:
+
+```r
+# ANALYSIS_OK[deprecated-flag]: --band-lo kept for backwards compat with
+# old wrapper scripts; value is ignored and BAND comes from the config file.
+optparse::make_option("--band-lo", default = 0.22),
+```
+
+### 43. Unvalidated config
+
+Pattern: a YAML / JSON config is loaded into a generic list, and then read via `cfg[["key"]]` (R) / `cfg.get("key")` (Python) without a schema check. Typos in keys are silently dropped (`cfg[["bandlo"]]` returns `NULL` when the file uses `band_lo`). Out-of-range values pass through.
+
+This is the same shape as R007 (silent fallback), but the silent path is a config typo rather than a file-not-found.
+
+Flag (R):
+
+```r
+cfg <- yaml::read_yaml("analysis_config.yaml")
+band_lo <- cfg[["band_lo"]]    # silent NULL if the file uses `bandLo`
+fdr     <- cfg$fdr_threshold   # silent NULL if the file uses `fdr`
+```
+
+Flag (Python):
+
+```python
+import yaml
+cfg = yaml.safe_load(open("analysis_config.yaml"))
+band_lo = cfg["band_lo"]       # KeyError on typo (better), or
+band_lo = cfg.get("band_lo")   # silent None on typo (worse)
+```
+
+Better: validate via a schema before reading individual keys.
+
+```r
+schema <- list(band_lo = "numeric", band_hi = "numeric", fdr = "numeric")
+cfg <- validate_config(yaml::read_yaml("analysis_config.yaml"), schema)
+band_lo <- cfg$band_lo   # now safe — validator already errored on missing
+```
+
+```python
+@dataclass
+class AnalysisConfig:
+    band_lo: float
+    band_hi: float
+    fdr: float
+
+cfg = AnalysisConfig(**yaml.safe_load(open("analysis_config.yaml")))
+```
+
+Linter sketch:
+
+1. Track variables whose value is `yaml::read_yaml(...)`, `yaml::yaml.load_file(...)`, `jsonlite::fromJSON(...)` (R), or `yaml.safe_load(...)` / `json.load(...)` (Python).
+2. If that variable is later read via `[[ ]]` / `$` / `.get(...)` / subscript access, flag the loader call.
+3. If the variable is passed to a function with `validate` / `schema` in its name (or to a dataclass / pydantic constructor in Python), don't flag.
+
+Allowed with structured waiver:
+
+```r
+# ANALYSIS_OK[unvalidated-config]: this is a development-only sweep config;
+# typos here are user errors that should surface as NULLs, not be coerced
+# to safe defaults.
+sweep_cfg <- yaml::read_yaml("sweep_grid.yaml")
+band_lo_range <- sweep_cfg$band_lo
+```
+
+### 44. Sentinel-mask assignment
+
+Pattern: building a boolean mask by comparing against a sentinel value (`""` for strings, `-999`/`-1` for numerics) instead of using real nullability (`is.na(x)` / `pd.isna(x)`). The mask is the partitioner downstream filtering uses; the sentinel comparison silently treats blank / placeholder values as "real" categories.
+
+This is distinct from R005 / `unannotated-filter`, which catches the same idea inline inside a subscript (`df[df$x != "", ]`). This rule catches the named-variable version (`keep <- df$x != ""`), where the mask outlives the immediate use and gets reused for downstream alignment.
+
+Flag (R):
+
+```r
+keep <- df$treatment != ""
+df_clean <- df[keep, ]
+
+mask <- counts != -999
+expr <- counts[mask]
+```
+
+Flag (Python):
+
+```python
+keep = df["treatment"] != ""
+df_clean = df[keep]
+
+mask = (counts != -999)
+expr = counts[mask]
+```
+
+Better:
+
+```r
+keep <- !is.na(df$treatment)
+df_clean <- df[keep, ]
+```
+
+```python
+keep = df["treatment"].notna()
+df_clean = df[keep]
+```
+
+Linter sketch:
+
+1. Find assignments of the form `<name> <- <expr> != ""` or `<name> <- <expr> == ""` (R) / `name = <expr> != ""` (Python).
+2. Compose with `&` / `|` / `!` (R) or `&` / `|` / `~` (Python) — recursively look inside boolean combinations.
+3. Don't flag inline filtering like `df[df$x != "", ]` (that's R005 territory).
+
+Scope intentionally narrow: only the empty-string sentinel is matched. `!= 0` and `!is.na(...)` style comparisons are out of scope (too common and usually legitimate).
+
+Allowed with structured waiver:
+
+```r
+# ANALYSIS_OK[sentinel-mask]: upstream CSV uses "" for missing
+# treatment label — documented in DATASET_INFO.md; downstream code
+# is sentinel-aware.
+keep <- df$treatment != ""
+```
 
 ## Severity levels
 

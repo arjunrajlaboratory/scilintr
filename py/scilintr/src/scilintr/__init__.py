@@ -1,9 +1,4 @@
-"""scilintr — Python flavor (scaffold).
+from scilintr._finding import Finding
+from scilintr._engine import lint_code, lint_paths
 
-Implementations land in src/scilintr/rules/r0NN_*.py. The lint dispatch,
-waiver matching, and project index live in the sibling modules.
-
-See ../../r/scilintr/ for the canonical R implementation.
-"""
-
-__version__ = "0.0.0.dev0"
+__all__ = ["Finding", "lint_code", "lint_paths"]
