@@ -10,7 +10,8 @@ Flags patterns that often correspond to hidden scientific commitments:
 - magic-eps floors in log/BIC formulas
 - shadow-overwrite of sourced helpers
 - "best of either side" reporting against a label
-- ...and 35 other rules.
+- silent absence propagation (`if (!file.exists(p)) return(NULL)`)
+- ...and 37 other rules.
 
 Designed for **agentic coding workflows**: high recall over precision,
 structured `ANALYSIS_OK[category]:` waivers as the audit trail. Many
@@ -24,15 +25,24 @@ scilintr/
 ├── analysis_lint_strategy.md   <- the rule spec; language-agnostic
 ├── docs/
 │   └── failure-modes.md        <- catalogued bugs each rule catches
-├── r/scilintr/                 <- R package (working, 40 rules)
+├── r/scilintr/                 <- R package (v0.1.0, 44 rules, 155 tests)
 │   └── ...
-└── py/scilintr/                <- Python package (scaffold; not yet implemented)
+└── py/scilintr/                <- Python package (v0.1.0, 27 rules, 139 tests)
     └── ...
 ```
 
-Both packages implement the same 40 rules against the same `analysis_lint_strategy.md`
-spec, with the same structured-waiver mechanism. The rule IDs (R001–R040,
-where the "R" stands for "Rule") are shared across languages.
+Both packages implement the same rule spec from `analysis_lint_strategy.md`
+and share the structured-waiver mechanism, the `Finding` record schema,
+and the CLI surface. They are deliberately not 1:1: the R package has
+more rules because most of the leakage-driven failure modes (R029
+read.csv mangling, R030 silent tryCatch, R-specific shadow-overwrite
+and scriptwise cross-file drift) come from R-style research codebases.
+The Python package covers the universal scientific-code failure modes
+plus a few Python-specific ones (`runtime-assert`, `unconsumed-cli-flag`,
+`unvalidated-config`, `sentinel-mask-assignment`). See the
+"Implementation status" section of
+[`analysis_lint_strategy.md`](analysis_lint_strategy.md) for the full
+rule-code cross-reference table.
 
 ## Install
 
@@ -55,8 +65,24 @@ Rscript -e 'scilintr::main()' path/to/project
 ### Python
 
 ```bash
-# Scaffold only at this stage. Once implementation lands:
 pip install "scilintr @ git+https://github.com/arjunrajlaboratory/scilintr.git#subdirectory=py/scilintr"
+```
+
+CLI:
+
+```bash
+scilintr path/to/analysis/                       # lint a file or directory
+scilintr --rules broad-exception path/to/file.py # restrict to a rule
+scilintr --summary path/to/dir/                  # per-rule counts only
+scilintr --no-waivers path/to/file.py            # audit mode
+```
+
+Library:
+
+```python
+from scilintr import lint_code, lint_paths, Finding
+findings = lint_code(source_string, filename="foo.py")
+findings = lint_paths(["path/to/dir/"])
 ```
 
 ## Design point: agent-first
@@ -88,13 +114,18 @@ index.
 
 ## Status
 
-- **R package (v0.0.0.9000)** — 40 rules implemented, 131 fixture tests
-  passing, tested against real analysis code with a ~62% noise reduction
-  from naive matching (after v1.1 tightening).
-- **Python package** — scaffold only. The rule spec, waiver mechanism,
-  fixture taxonomy, and finding-record schema are designed for shared
-  use; the Python implementation follows the same shape but is not yet
-  written.
+- **R package (v0.1.0)** — 44 rules implemented (R001–R044, including
+  R020/R025/R026 cross-file). 155 testthat fixtures passing. `R CMD
+  check --as-cran` clean. Tested against real analysis code with a
+  ~62% noise reduction from naive matching (after v1.1 tightening).
+- **Python package (v0.1.0)** — 27 rules implemented (`broad-exception`,
+  `unchecked-merge`, `magic-threshold`, `label-in-blind-stage`,
+  `synthetic-data-generation`, …). 139 pytest tests passing. `python -m
+  build` produces clean wheel + sdist; `twine check` PASSED.
+
+Neither is on PyPI / CRAN yet — install from this repo via the
+commands above. Both are structurally ready for upload when the time
+comes.
 
 ## See also
 
@@ -103,6 +134,7 @@ index.
 - [`docs/failure-modes.md`](docs/failure-modes.md) — catalogued analysis
   and code failure modes that motivate each rule.
 - [`r/scilintr/README.md`](r/scilintr/README.md) — R package details.
+- [`py/scilintr/README.md`](py/scilintr/README.md) — Python package details.
 
 ## License
 
