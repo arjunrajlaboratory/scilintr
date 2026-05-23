@@ -3,8 +3,10 @@
 #' Flag filtering assignments whose LHS name starts with `plot_`.
 #'
 #' Pattern:
+#' ```
 #'   plot_df <- de_results[de_results$padj < 0.05, ]
 #'   plot_df <- df %>% filter(...)
+#' ```
 #'
 #' Visual filtering (subsetting for a single chart) silently mutates the
 #' analysis population if the same `plot_df` is later treated as the DE

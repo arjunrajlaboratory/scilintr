@@ -25,7 +25,7 @@ unledger_missingness_linter <- function() {
         line_number = as.integer(xml2::xml_attr(node, "line1")),
         type        = "warning",
         message     = paste(
-          "R006: na.omit() silently drops rows with NAs —",
+          "R006: na.omit() silently drops rows with NAs --",
           "scope the drop or add an ANALYSIS_OK[missingness] ledger comment."
         )
       )

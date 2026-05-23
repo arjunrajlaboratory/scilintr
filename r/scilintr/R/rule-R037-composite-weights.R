@@ -27,7 +27,7 @@ composite_weights_linter <- function() {
     if (is.null(xml)) return(list())
 
     # `<expr>` nodes that have a direct OP-PLUS child but whose parent
-    # `<expr>` does NOT — i.e., the outermost node of any `+` chain.
+    # `<expr>` does NOT -- i.e., the outermost node of any `+` chain.
     plus_exprs <- xml2::xml_find_all(
       xml,
       "//expr[OP-PLUS and not(parent::expr/OP-PLUS)]"
@@ -56,7 +56,7 @@ composite_weights_linter <- function() {
       # `<expr> OP-STAR <expr>` where the first expr is a NUM_CONST leaf.
       star_idx <- which(names_kids == "OP-STAR")
       if (length(star_idx) == 0L) return(FALSE)
-      # Use the first OP-STAR (handles `0.3 * a * b` — still counts as literal-coef).
+      # Use the first OP-STAR (handles `0.3 * a * b` -- still counts as literal-coef).
       si <- star_idx[[1L]]
       if (si < 2L) return(FALSE)
       lhs <- kids[[si - 1L]]

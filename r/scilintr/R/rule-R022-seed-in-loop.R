@@ -3,8 +3,8 @@
 #' Flag `set.seed(...)` calls inside a function literal.
 #'
 #' v1 heuristic per `analysis_lint_strategy.md` R022: a `set.seed()`
-#' that is not at script top level — i.e. nested inside any enclosing
-#' `function(...) <body>` — pollutes the global RNG state when the
+#' that is not at script top level -- i.e. nested inside any enclosing
+#' `function(...) <body>` -- pollutes the global RNG state when the
 #' function is invoked from a loop or parallel worker. The reproducibility
 #' contract belongs to the dispatcher (top-level seed or L'Ecuyer streams),
 #' not the per-task callee.
@@ -33,7 +33,7 @@ seed_in_loop_linter <- function() {
         type        = "warning",
         message     = paste(
           "R022: set.seed() inside a function body pollutes global RNG",
-          "state when called in a loop or parallel worker — seed once at",
+          "state when called in a loop or parallel worker -- seed once at",
           "top level, or use L'Ecuyer streams for parallel reproducibility."
         )
       )

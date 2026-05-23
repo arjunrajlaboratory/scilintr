@@ -39,7 +39,7 @@ positional_alignment_linter <- function() {
         type        = "warning",
         message     = paste(
           "R004: positional row/column slice driven by another structure's",
-          "dimension (ncol/nrow/seq_len) — align by shared identifier",
+          "dimension (ncol/nrow/seq_len) -- align by shared identifier",
           "(e.g. df[, other$sample_id]) and assert identical() instead."
         )
       )

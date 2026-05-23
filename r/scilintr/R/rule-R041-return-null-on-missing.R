@@ -2,13 +2,13 @@
 
 #' Flag `if (!file.exists(path)) return(NULL/NA)`.
 #'
-#' This is a silent fallback wearing a different costume — the explicit
+#' This is a silent fallback wearing a different costume -- the explicit
 #' fallback rule (R007) catches `try(...)` swallowing, but it doesn't
 #' catch the cleaner-looking `if (!file.exists(path)) return(NULL)`.
 #' Same end state: the missing input is treated as an acceptable empty
 #' signal and propagates downstream.
 #'
-#' Detection: an `if(!file.exists(...))` whose body is — or contains —
+#' Detection: an `if(!file.exists(...))` whose body is -- or contains --
 #' a `return(NULL)`, `return(NA)`, `return(NA_real_)`, etc. Returns of
 #' other values (`return(0)`, `return(x)`) are not flagged.
 #'
@@ -37,7 +37,7 @@ return_null_on_missing_linter <- function() {
       if (length(direct_exprs) < 2L) next
       body <- direct_exprs[[2]]
 
-      # Any return(NULL|NA|NA_real_|...) inside the body — directly or
+      # Any return(NULL|NA|NA_real_|...) inside the body -- directly or
       # wrapped in `{ ... }`. The literal child must be NULL_CONST, or
       # NUM_CONST whose text is NA / NA_*. `descendant-or-self::` so the
       # one-liner shape `if (!file.exists(path)) return(NULL)` -- where

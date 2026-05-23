@@ -2,7 +2,7 @@
 #'
 #' Batch correction, residualization, and similar transforms silently
 #' reshape downstream analysis. Require an `ANALYSIS_OK[...]` waiver
-#' (handled elsewhere) that documents what was — and was not —
+#' (handled elsewhere) that documents what was -- and was not --
 #' included as a covariate.
 #'
 #' Flagged calls (matched by function symbol):
@@ -37,7 +37,7 @@ unexplained_transform_linter <- function() {
         type        = "warning",
         message     = paste0(
           "R014: scientifically consequential transform `", name,
-          "()` — document covariates with an ANALYSIS_OK[...] waiver."
+          "()` -- document covariates with an ANALYSIS_OK[...] waiver."
         )
       )
     })

@@ -149,7 +149,7 @@ extract_sources <- function(xml, file_path, file_abs) {
   do.call(rbind, rows)
 }
 
-#' Stage tag row for the index — wraps `detect_file_stage()`.
+#' Stage tag row for the index -- wraps `detect_file_stage()`.
 #' @keywords internal
 stage_row <- function(path, path_abs) {
   data.frame(

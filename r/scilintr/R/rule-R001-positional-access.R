@@ -8,7 +8,7 @@
 #' NUM_CONST, and are not flagged.
 #'
 #' Trivial literals (`TRUE`, `FALSE`, `NA`, `0`, `1`, `Inf`, etc.) are
-#' filtered out — they parse as `NUM_CONST` in xmlparsedata but are
+#' filtered out -- they parse as `NUM_CONST` in xmlparsedata but are
 #' never positional indices. The `drop = FALSE` argument of
 #' `df[, j, drop = FALSE]` is the canonical false-positive this guards
 #' against.
@@ -73,7 +73,7 @@ positional_access_linter <- function() {
         line_number = as.integer(xml2::xml_attr(n, "line1")),
         type        = "warning",
         message     = paste(
-          "R001: positional dataframe access by integer literal —",
+          "R001: positional dataframe access by integer literal --",
           "use a named column (e.g. df$treatment, df[[\"treatment\"]])",
           "or extract the index to a named constant."
         )

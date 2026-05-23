@@ -11,7 +11,7 @@
 #' whose body is a *single* statement calling `return(readRDS(...))`
 #' (or `read_rds`, `read.csv`, `read_csv`). Multi-statement `{...}`
 #' bodies are spared on the assumption that the extra statements
-#' implement a fingerprint check — the orchestrator's waiver layer
+#' implement a fingerprint check -- the orchestrator's waiver layer
 #' handles any remaining false positives.
 #'
 #' @keywords internal
@@ -50,7 +50,7 @@ stale_cache_linter <- function() {
         type        = "warning",
         message     = paste(
           "R009: cache short-circuit returns readRDS/read.csv without an",
-          "input fingerprint check — stale-cache hazard."
+          "input fingerprint check -- stale-cache hazard."
         )
       )
     })

@@ -42,7 +42,7 @@ unchecked_join_linter <- function() {
         line_number = as.integer(xml2::xml_attr(n, "line1")),
         type        = "warning",
         message     = paste(
-          "R003: join/merge without a follow-up cardinality check —",
+          "R003: join/merge without a follow-up cardinality check --",
           "add `stopifnot(nrow(x) == n_before)` or",
           "`stopifnot(!anyDuplicated(key))` after the join."
         )

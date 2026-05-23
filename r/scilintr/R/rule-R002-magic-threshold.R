@@ -7,7 +7,7 @@
 #' `NUM_CONST` appears.
 #'
 #' Trivial literals (`0`, `1`, `-1`, `NA`, `TRUE`, `FALSE`, `Inf`,
-#' etc.) are filtered out — loop sentinels (`length(x) > 0L`) and
+#' etc.) are filtered out -- loop sentinels (`length(x) > 0L`) and
 #' presence checks (`nrow(df) > 0`) are not scientific thresholds.
 #'
 #' V1.1 still over-flags relative to the strict spec; legitimate
@@ -48,7 +48,7 @@ magic_threshold_linter <- function() {
         line_number = as.integer(xml2::xml_attr(n, "line1")),
         type        = "warning",
         message     = paste(
-          "R002: magic numeric threshold in comparison —",
+          "R002: magic numeric threshold in comparison --",
           "extract to a named constant (e.g. FDR_THRESHOLD)",
           "or move to config."
         )

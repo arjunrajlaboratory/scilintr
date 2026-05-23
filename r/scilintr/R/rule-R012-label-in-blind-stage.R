@@ -56,7 +56,7 @@ label_in_blind_stage_linter <- function() {
         type        = "warning",
         message     = paste0(
           "R012: reference to label column `$", xml2::xml_text(node),
-          "` in a blind (`STAGE: ", stage, "`) file — selection-stage code",
+          "` in a blind (`STAGE: ", stage, "`) file -- selection-stage code",
           " must not consult outcome/label metadata."
         )
       )
@@ -77,7 +77,7 @@ label_in_blind_stage_linter <- function() {
           type        = "warning",
           message     = paste0(
             "R012: reference to label column `[[\"", val,
-            "\"]]` in a blind (`STAGE: ", stage, "`) file — selection-stage",
+            "\"]]` in a blind (`STAGE: ", stage, "`) file -- selection-stage",
             " code must not consult outcome/label metadata."
           )
         )
@@ -99,7 +99,7 @@ label_in_blind_stage_linter <- function() {
         type        = "warning",
         message     = paste0(
           "R012: reference to label column `pull(", xml2::xml_text(node),
-          ")` in a blind (`STAGE: ", stage, "`) file — selection-stage code",
+          ")` in a blind (`STAGE: ", stage, "`) file -- selection-stage code",
           " must not consult outcome/label metadata."
         )
       )

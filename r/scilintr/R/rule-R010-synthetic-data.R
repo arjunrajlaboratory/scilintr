@@ -7,7 +7,7 @@
 #' v1 heuristic: any `<SYMBOL_FUNCTION_CALL>` whose text matches one of
 #' the known random-data generators is flagged at the line of the call.
 #' We deliberately don't try to distinguish "data-like" assignments from
-#' diagnostic randomness — false positives are cheap and the waiver
+#' diagnostic randomness -- false positives are cheap and the waiver
 #' layer (`ANALYSIS_OK[...]`) handles legitimate uses.
 #'
 #' @keywords internal
@@ -41,7 +41,7 @@ synthetic_data_linter <- function() {
         type        = "warning",
         message     = paste0(
           "R010: call to random-data generator `", fn,
-          "()` — synthetic data should be confined to tests/fixtures."
+          "()` -- synthetic data should be confined to tests/fixtures."
         )
       )
     })

@@ -39,7 +39,7 @@ implicit_file_selection_linter <- function() {
           type        = "warning",
           message     = paste0(
             "R008: suspicious filename literal (", val,
-            ") — pin to an explicit release identifier."
+            ") -- pin to an explicit release identifier."
           )
         )
       }
@@ -62,7 +62,7 @@ implicit_file_selection_linter <- function() {
           line_number = as.integer(xml2::xml_attr(enclosing, "line1")),
           type        = "warning",
           message     = paste(
-            "R008: file picked by mtime (file.info(...)$mtime) —",
+            "R008: file picked by mtime (file.info(...)$mtime) --",
             "pin to an explicit release identifier instead."
           )
         )

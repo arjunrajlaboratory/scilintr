@@ -54,7 +54,7 @@ rule_R020_shadow_overwrite <- function(idx) {
         rule = "R020",
         message = sprintf(
           paste(
-            "R020: function '%s' redefined after source('%s') —",
+            "R020: function '%s' redefined after source('%s') --",
             "shadows the library version (defined at %s:%d)."
           ),
           overlap$name[j],
@@ -92,7 +92,7 @@ rule_R025_def_drift <- function(idx) {
   for (nm in drifted_names) {
     rows <- idx$defs[idx$defs$name == nm, , drop = FALSE]
     # Only flag if the definitions span multiple files (drift, not
-    # accidental duplicates within one file — those are a per-file
+    # accidental duplicates within one file -- those are a per-file
     # concern).
     if (length(unique(rows$file)) < 2L) next
     for (i in seq_len(nrow(rows))) {
@@ -125,6 +125,7 @@ rule_R025_def_drift <- function(idx) {
 #' v1 textual check, so matches inside comments or strings are not
 #' excluded.
 #'
+#' @importFrom stats setNames
 #' @keywords internal
 rule_R026_dead_code <- function(idx) {
   if (nrow(idx$defs) == 0L) return(list())
@@ -161,7 +162,7 @@ rule_R026_dead_code <- function(idx) {
         line = idx$defs$line[i],
         rule = "R026",
         message = sprintf(
-          "R026: function '%s' has no callers in other project files — dead code.",
+          "R026: function '%s' has no callers in other project files -- dead code.",
           nm
         )
       )

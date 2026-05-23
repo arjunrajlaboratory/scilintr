@@ -13,11 +13,11 @@
 #'   - NUM_CONST: `191`, `191L`, `193`, `193L`
 #'   - STR_CONST: `"A191"`, `"A193"`
 #'   - STR_CONST matching SNP-name pattern `^X\d+\.\d+[A-Z]+\.[A-Z]+$`
-#'     (e.g., `"X17.76565019G.A"` — R-mangled SNP-id, which is necessarily
+#'     (e.g., `"X17.76565019G.A"` -- R-mangled SNP-id, which is necessarily
 #'     dataset-specific and should not live in library code).
 #'
 #' Waiver suppression (`ANALYSIS_OK[sample-specific-default]` and similar)
-#' is applied by the orchestrator, not here — this rule fires on every
+#' is applied by the orchestrator, not here -- this rule fires on every
 #' offending literal regardless of nearby waiver comments.
 #'
 #' @keywords internal
@@ -58,7 +58,7 @@ patient_id_in_lib_linter <- function() {
         type        = "warning",
         message     = paste0(
           "R021: hardcoded patient/sample ID `", xml2::xml_text(n),
-          "` in library-stage code — pass as an argument or ",
+          "` in library-stage code -- pass as an argument or ",
           "move to a manifest."
         )
       )
@@ -76,7 +76,7 @@ patient_id_in_lib_linter <- function() {
           type        = "warning",
           message     = paste0(
             "R021: hardcoded patient/SNP literal `", val,
-            "` in library-stage code — pass as an argument or ",
+            "` in library-stage code -- pass as an argument or ",
             "move to a manifest."
           )
         )

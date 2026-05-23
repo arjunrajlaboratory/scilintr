@@ -1,0 +1,6 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^\.github$
+^tests/run-tests\.R$
+^README\.md$
+^\.DS_Store$

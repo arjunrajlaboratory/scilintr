@@ -5,7 +5,7 @@
 #' v1 heuristic: find any named-argument `design = <expr>` where the
 #' RHS expression is a tilde formula literal (`<OP-TILDE>` in the XML
 #' parse tree). Variables resolving to formulas (e.g.,
-#' `design = design_formula`) are not flagged — only inline tildes.
+#' `design = design_formula`) are not flagged -- only inline tildes.
 #' Waiver suppression (`ANALYSIS_OK[contrast-definition]`) is handled
 #' by the dispatcher; this rule always fires on inline tildes.
 #'
@@ -34,7 +34,7 @@ hardcoded_design_formula_linter <- function() {
         line_number = as.integer(line),
         type        = "warning",
         message     = paste(
-          "R013: hardcoded design formula (`design = ~ ...`) —",
+          "R013: hardcoded design formula (`design = ~ ...`) --",
           "move the formula to a config file and load it,",
           "or document with ANALYSIS_OK[contrast-definition]."
         )

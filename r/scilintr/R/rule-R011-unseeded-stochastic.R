@@ -6,7 +6,7 @@
 #' The waiver comment `ANALYSIS_OK[random-seed-only]` is handled by the
 #' orchestrator's `apply_waivers`, not here.
 #'
-#' Known stochastic call names: `kmeans`, `umap` (covers `uwot::umap` —
+#' Known stochastic call names: `kmeans`, `umap` (covers `uwot::umap` --
 #' SYMBOL_FUNCTION_CALL matches the bare function name even under `pkg::`),
 #' `Rtsne`, `tsne`.
 #'
@@ -39,7 +39,7 @@ unseeded_stochastic_linter <- function() {
         type        = "warning",
         message     = paste0(
           "R011: stochastic call `", xml2::xml_text(node),
-          "(...)` without `set.seed(...)` in this file — ",
+          "(...)` without `set.seed(...)` in this file -- ",
           "results will not be reproducible."
         )
       )

@@ -8,7 +8,7 @@
 #' the canonical `exclude <- c("S17", "S23")` pattern from the strategy
 #' doc. The rule fires regardless of waivers; waiver suppression is
 #' applied by the dispatcher reading `ANALYSIS_OK[sample-exclusion]`
-#' ledger comments — so `good_ledgered.R` still emits a Lint here.
+#' ledger comments -- so `good_ledgered.R` still emits a Lint here.
 #'
 #' @keywords internal
 hardcoded_sample_id_linter <- function() {
@@ -35,7 +35,7 @@ hardcoded_sample_id_linter <- function() {
         line_number = as.integer(xml2::xml_attr(call_node, "line1")),
         type        = "warning",
         message     = paste(
-          "R016: hardcoded sample IDs in c(...) —",
+          "R016: hardcoded sample IDs in c(...) --",
           "move exclusion list to a ledger file or document with",
           "ANALYSIS_OK[sample-exclusion]."
         )

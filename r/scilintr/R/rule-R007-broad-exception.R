@@ -3,7 +3,7 @@
 #' Flag `try(..., silent = TRUE)`.
 #'
 #' `try(expr, silent = TRUE)` swallows errors without logging or
-#' rethrowing — the caller continues with a `try-error` object that
+#' rethrowing -- the caller continues with a `try-error` object that
 #' often gets coerced or ignored downstream. v1 detects exactly this
 #' pattern; broader fallback heuristics are deferred.
 #'
@@ -31,7 +31,7 @@ broad_exception_linter <- function() {
         line_number = as.integer(xml2::xml_attr(node, "line1")),
         type        = "warning",
         message     = paste(
-          "R007: try(..., silent = TRUE) swallows errors —",
+          "R007: try(..., silent = TRUE) swallows errors --",
           "log explicitly or use tryCatch with a real handler."
         )
       )

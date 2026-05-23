@@ -2,7 +2,7 @@
 
 #' Flag `order(...)` / `arrange(...)` calls whose secondary sort key
 #' references a label-named column (e.g. `is_gt_label`, `truth_c1`,
-#' `is_target`). A secondary key drives ranking *for ties* — if the
+#' `is_target`). A secondary key drives ranking *for ties* -- if the
 #' tie-breaker is the answer key, the ranking is leaky.
 #'
 #' Detection:
@@ -62,7 +62,7 @@ label_tiebreak_linter <- function() {
         type        = "warning",
         message     = paste0(
           "R032: secondary sort key in `", fname,
-          "(...)` references a label/ground-truth column — tie-breakers",
+          "(...)` references a label/ground-truth column -- tie-breakers",
           " decide ranking for ties; use a leak-free key",
           " (independent prior rank, lexicographic ID, or seeded random)."
         )

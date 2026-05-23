@@ -81,7 +81,7 @@ label_score_coresidence_linter <- function() {
       if (!(has_label && has_score)) next
 
       # Anchor the lint at the first matching SYMBOL_SUB (label or
-      # score) in document order — gives the reader the earliest
+      # score) in document order -- gives the reader the earliest
       # offending column. sub_nodes is already in source order.
       matches <- which(
         sub_text %in% label_names |

@@ -52,7 +52,7 @@ unconsumed_cli_flag_linter <- function() {
       first_arg <- xml2::xml_find_first(call, "expr[STR_CONST][1]/STR_CONST")
       if (length(first_arg) == 0L) next
       raw <- xml2::xml_text(first_arg)
-      opt_str <- gsub('^"|"$|^’|^\'|\'$', "", raw)
+      opt_str <- gsub('^["\']|["\']$', "", raw)
       stripped <- sub("^--?", "", opt_str)
       if (!nzchar(stripped)) next
       dest <- gsub("-", "_", stripped)

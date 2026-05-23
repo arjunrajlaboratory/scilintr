@@ -59,12 +59,12 @@ per_file_linters <- function() {
 #' Flag `tryCatch(..., error = function(e) <literal>)`.
 #'
 #' A handler that returns a single literal (NUM_CONST, NULL_CONST,
-#' STR_CONST — covers `NA`, `NA_real_`, `NULL`, `0`, `""`, etc.)
+#' STR_CONST -- covers `NA`, `NA_real_`, `NULL`, `0`, `""`, etc.)
 #' silently maps errors to a numerically-valid stand-in. Caller-side
 #' arithmetic then continues with a meaningless value.
 #'
 #' Multi-statement handler bodies (`function(e) { warning(...); NA }`)
-#' are not flagged here — they may still swallow, but they at least
+#' are not flagged here -- they may still swallow, but they at least
 #' do *something* observable. A stricter variant could check the last
 #' statement of a `{...}` body; deferred for now.
 #'
@@ -99,7 +99,7 @@ silent_trycatch_linter <- function() {
         line_number = as.integer(xml2::xml_attr(body, "line1")),
         type        = "warning",
         message     = paste(
-          "R030: tryCatch swallows error and returns a literal —",
+          "R030: tryCatch swallows error and returns a literal --",
           "log explicitly or rethrow."
         )
       )

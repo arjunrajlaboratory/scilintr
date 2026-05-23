@@ -1,26 +1,27 @@
 Package: scilintr
 Title: Scientific Code Lint for R Analyses
-Version: 0.0.0.9000
+Version: 0.1.0
 Authors@R: person("Arjun", "Raj", email = "arjunraj@seas.upenn.edu",
                   role = c("aut", "cre"))
 Description: Static analysis for R scientific data analysis code. Flags
-    patterns that often correspond to hidden scientific commitments —
+    patterns that often correspond to hidden scientific commitments --
     silent error swallowing, smuggled defaults, label leakage in
-    selection-stage code, magic-eps floors in BIC formulas, and
+    selection-stage code, magic-eps floors in 'BIC' formulas, and
     shadow-overwrite of sourced helpers. Designed for agentic coding
-    workflows; high recall over precision; structured ANALYSIS_OK[...]
+    workflows; high recall over precision; structured 'ANALYSIS_OK'
     waivers as the audit trail.
 License: MIT + file LICENSE
+URL: https://github.com/arjunrajlaboratory/scilintr
+BugReports: https://github.com/arjunrajlaboratory/scilintr/issues
 Encoding: UTF-8
 Imports:
     lintr (>= 3.0.0),
     xml2,
     xmlparsedata,
-    yaml,
-    cli,
-    jsonlite
+    yaml
 Suggests:
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    roxygen2
 Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.1
+Config/roxygen2/version: 8.0.0

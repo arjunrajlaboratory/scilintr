@@ -16,7 +16,7 @@
 #'  * Second `pmax` argument is either a `NUM_CONST` with numeric
 #'    value `< 1e-6`, or the expression `.Machine$double.eps`.
 #'  * `pmax(x, 1 / (2 * N))` and similar compound expressions are not
-#'    flagged — the second argument is not a single literal.
+#'    flagged -- the second argument is not a single literal.
 #'
 #' @keywords internal
 magic_eps_floor_linter <- function() {
@@ -69,7 +69,7 @@ magic_eps_floor_linter <- function() {
         line_number = as.integer(xml2::xml_attr(pe, "line1")),
         type        = "warning",
         message     = paste(
-          "R031: log(pmax(x, <tiny constant>)) — use a domain-motivated",
+          "R031: log(pmax(x, <tiny constant>)) -- use a domain-motivated",
           "floor (e.g. half the smallest non-zero increment),",
           "not a generic numerical-safety epsilon."
         )

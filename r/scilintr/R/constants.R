@@ -5,8 +5,8 @@
 #' fences, NA fillers, and booleans. Multiple rules consult this set to
 #' avoid over-flagging idiomatic R.
 #'
-#' Used by R001 (positional access — drop = FALSE etc.) and R002 (magic
-#' threshold — `length(x) > 0L` etc.). Rule R024 (smuggled default)
+#' Used by R001 (positional access -- drop = FALSE etc.) and R002 (magic
+#' threshold -- `length(x) > 0L` etc.). Rule R024 (smuggled default)
 #' uses an equivalent inline allowlist; consolidate if/when extending.
 #'
 #' @keywords internal
