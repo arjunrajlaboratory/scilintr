@@ -1,0 +1,160 @@
+% scitexlintr — end-to-end test corpus.
+%
+% Marker convention used by tests/test_corpus.py:
+%   The line IMMEDIATELY ABOVE a body line either says
+%     % LINT-EXPECT[rule-a,rule-b]   -> all listed rules MUST fire on next line
+%     % LINT-OK                      -> NO finding may fire on next line
+%   Anything else is freeform commentary.
+%
+% Comments in TeX start with an unescaped %. The linter must strip them
+% before scanning, otherwise these markers would themselves trigger rules.
+\documentclass{article}
+\usepackage{graphicx}
+
+% --- Wrapper macros (normally emitted by render_report_values_tex) ---
+\newcommand{\SciVal}[2]{#1}
+\newcommand{\SciText}[2]{#1}
+
+% --- Generated value macros (normally in build/report_values.tex) ---
+\newcommand{\NSamples}{48}
+\newcommand{\NControl}{24}
+\newcommand{\NTreated}{24}
+\newcommand{\NDEGenes}{317}
+\newcommand{\NGenesAfterFiltering}{15,122}
+\newcommand{\FDRThreshold}{0.05}
+\newcommand{\ContrastPhrase}{treated versus control}
+\newcommand{\NReplicates}{12}
+\newcommand{\ExactAccuracy}{0.973}
+
+\begin{document}
+
+\section{Results}
+
+%% ===== snapshot-mismatch =====
+
+% LINT-EXPECT[snapshot-mismatch]
+We analyzed \SciVal{\NSamples}{47} cells in the cohort A subset.
+
+% LINT-OK
+We analyzed \SciVal{\NSamples}{48} cells in the main cohort.
+
+% LINT-EXPECT[snapshot-mismatch]
+For the \SciText{\ContrastPhrase}{control versus treated} comparison the sign flips.
+
+% LINT-OK
+For the \SciText{\ContrastPhrase}{treated versus control} comparison the sign agrees.
+
+%% ===== raw-generated-value =====
+
+% LINT-EXPECT[raw-generated-value]
+The 317 differentially expressed genes cluster into three groups.
+
+% LINT-EXPECT[raw-generated-value]
+We focused on treated versus control comparisons across all batches.
+
+% LINT-OK
+We observed \SciVal{\NDEGenes}{317} differentially expressed genes overall.
+
+%% ===== bare-generated-macro =====
+
+% LINT-EXPECT[bare-generated-macro]
+Without wrapper, \NSamples samples were retained for analysis.
+
+% LINT-OK
+With wrapper, \SciVal{\NSamples}{48} samples were retained for analysis.
+
+%% ===== unwrapped-threshold =====
+
+% LINT-EXPECT[unwrapped-threshold]
+We used FDR $< 0.05$ as the differential-expression cutoff.
+
+% LINT-OK
+We loosened to FDR $< \SciVal{\FDRThreshold}{0.05}$ in a sensitivity sweep.
+
+%% ===== unfingerprinted-figure =====
+
+% LINT-OK
+\includegraphics{figures/volcano_de.pdf}
+
+% LINT-OK
+\includegraphics[width=0.6\textwidth]{figures/qc_summary.png}
+
+% LINT-EXPECT[unfingerprinted-figure]
+\includegraphics{figures/heatmap.pdf}
+
+%% ===== unsourced-numeric-token =====
+
+% LINT-EXPECT[unsourced-numeric-token]
+The amplicon coverage was 99.9 percent across replicates.
+
+%% ===== overloaded-term-no-warning =====
+%% (Warning text introduced LATER in this doc; the first use below must fire.)
+
+% LINT-EXPECT[overloaded-term-no-warning]
+The BCLRT score was elevated in tumor samples.
+
+% The warning text now appears in the prose:
+Note that BCLRT is not a Wilks-sense LRT; threshold 10 corresponds to Wilks 20.
+
+% LINT-OK
+A second mention of BCLRT is fine because the warning was issued above.
+
+%% ===== forbidden-alias =====
+
+% LINT-EXPECT[forbidden-alias]
+The accuracy was \SciVal{\ExactAccuracy}{0.973} on the validation split.
+
+% LINT-OK
+The exact match accuracy was \SciVal{\ExactAccuracy}{0.973} on the held-out set.
+
+% LINT-EXPECT[forbidden-alias]
+There were many total cells in the cohort, far more than after filtering.
+
+%% ===== handwritten-numeric-claim =====
+
+% LINT-EXPECT[handwritten-numeric-claim]
+We saw n = 23 in earlier work by Bagamery.
+
+% LINT-EXPECT[handwritten-numeric-claim]
+With p = 1e-8, the result was strongly significant.
+
+% LINT-EXPECT[handwritten-numeric-claim]
+We measured r = 0.82 across biological replicates.
+
+% ANALYSIS_OK[handwritten-numeric-claim]: footnote citing Bagamery 2024 N=23, not a result of this analysis
+% LINT-OK
+We mentioned N = 23 cells in passing, as in earlier work.
+
+%% ===== magic-tex-threshold =====
+
+% LINT-EXPECT[magic-tex-threshold]
+Using a relaxed cutoff $< 0.01$, we found more candidates.
+
+% LINT-OK
+We then re-tightened to FDR $< \SciVal{\FDRThreshold}{0.05}$ everywhere.
+
+%% ===== Edge cases the parser must NOT trip over =====
+
+% LINT-OK
+% This whole comment line has 999 in it and must NOT trigger anything.
+
+% Escaped percent does NOT start a comment; the rest of THIS line is prose.
+% LINT-OK
+We recovered roughly 50\% of the input reads, which is acceptable.
+
+% Namespace-with-colon id (diff-expr:weird_ns_n_replicates) still maps to \NReplicates.
+% LINT-OK
+Across \SciVal{\NReplicates}{12} biological replicates the variance was low.
+
+% LINT-EXPECT[snapshot-mismatch]
+Across \SciVal{\NReplicates}{11} biological replicates the variance was low.
+
+% Section/Figure references should be skipped by the numeric scanner.
+% LINT-OK
+See Section 4.2 for the QC pipeline, and Figure 3 for the volcano.
+
+% Wrapper second arguments must NOT themselves trip unsourced/raw rules.
+% LINT-OK
+After filtering, \SciVal{\NGenesAfterFiltering}{15,122} genes remained.
+
+\end{document}

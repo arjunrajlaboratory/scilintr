@@ -1,0 +1,58 @@
+[project]
+name = "scitexlintr"
+version = "0.1.0"
+description = "Scientific linting for LaTeX reports — snapshot drift, unsourced numbers, unfingerprinted figures."
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Arjun Raj", email = "arjunraj@seas.upenn.edu" }]
+keywords = [
+    "lint",
+    "latex",
+    "scientific-writing",
+    "reproducibility",
+    "report-generation",
+    "agentic-coding",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Text Processing :: Markup :: LaTeX",
+    "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "build>=1.0",
+    "twine>=5.0",
+]
+
+[project.scripts]
+scitexlintr = "scitexlintr.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/arjunrajlaboratory/scilintr"
+Repository = "https://github.com/arjunrajlaboratory/scilintr"
+Issues = "https://github.com/arjunrajlaboratory/scilintr/issues"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
