@@ -31,6 +31,18 @@ def test_raw_value_word_boundary(has_finding, wrap_body):
     assert not has_finding(src, RULE)
 
 
+def test_raw_value_matches_unpadded_scientific(wrap_body):
+    """Self-review bug: ``repr(1e-8) == '1e-08'`` (zero-padded exponent),
+    but prose conventionally writes ``1e-8``. Must find either form."""
+    from scitexlintr import lint_tex, parse_manifest
+    manifest = parse_manifest({"numbers": [{"id": "p_threshold", "value": 1e-8}]})
+    src = wrap_body("With p = 1e-8, the result was strongly significant.")
+    findings = lint_tex(src, filename="t.tex", manifest=manifest)
+    assert any(f.rule == "raw-generated-value" for f in findings), (
+        f"raw-generated-value missed '1e-8'; findings: {[(f.rule, f.line) for f in findings]}"
+    )
+
+
 def test_raw_value_respects_waiver(has_finding, wrap_body):
     src = wrap_body(
         "% ANALYSIS_OK[raw-generated-value]: this 317 refers to the prior dataset\n"

@@ -108,7 +108,7 @@ class Manifest:
 
 
 def load_manifest(path: str | Path) -> Manifest:
-    raw = json.loads(Path(path).read_text())
+    raw = json.loads(Path(path).read_text(encoding="utf-8"))
     return parse_manifest(raw)
 
 
@@ -219,7 +219,21 @@ def values_equal_as_snapshot(value: object, snapshot: str) -> bool:
     """
     snap = snapshot.strip()
     if isinstance(value, str):
-        return snap == value.strip()
+        v = value.strip()
+        if snap == v:
+            return True
+        # Numeric fallback: if BOTH the snapshot and the string-typed
+        # manifest value parse as floats, compare numerically. This
+        # handles emitters that JSON-encode every value as a string
+        # (``"0.0500"`` vs ``0.05`` in prose).
+        try:
+            snap_f = float(snap.replace(",", ""))
+            v_f = float(v.replace(",", ""))
+        except ValueError:
+            return False
+        if v_f == 0.0:
+            return abs(snap_f) < 1e-12
+        return abs(snap_f - v_f) / abs(v_f) < 1e-12
     if isinstance(value, bool):
         return snap.lower() == ("true" if value else "false")
     if isinstance(value, (int, float)):

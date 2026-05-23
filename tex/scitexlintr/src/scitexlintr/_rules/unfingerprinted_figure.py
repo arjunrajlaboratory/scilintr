@@ -42,18 +42,24 @@ def _normalize(path: str) -> str:
 
 
 def _path_matches_manifest(tex_path: str, manifest: Manifest) -> bool:
+    """Match a ``\\includegraphics`` path against a manifest entry.
+
+    Forgiving in ONE direction: the tex may omit the extension and we'll
+    try the known graphics extensions against extension-bearing manifest
+    entries. We do NOT match in the other direction — an extensionless
+    manifest entry is treated as a specific file (sha256 attached), not
+    as a stem that swallows any tex-side extension.
+    """
     normalized_index = {_normalize(k) for k in manifest.by_figure_path}
     tex = _normalize(tex_path)
     if tex in normalized_index:
         return True
-    # The document omitted an extension that the manifest spelled out.
-    for ext in _GRAPHICS_EXTENSIONS:
-        if tex + ext in normalized_index:
-            return True
-    # The manifest omitted the extension the document spelled out.
-    for ext in _GRAPHICS_EXTENSIONS:
-        if tex.endswith(ext) and tex[: -len(ext)] in normalized_index:
-            return True
+    # Document omitted an extension that the manifest spelled out. Only
+    # safe when the tex path has no extension itself.
+    if "." not in tex.rsplit("/", 1)[-1]:
+        for ext in _GRAPHICS_EXTENSIONS:
+            if tex + ext in normalized_index:
+                return True
     return False
 
 

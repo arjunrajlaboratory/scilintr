@@ -38,10 +38,14 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
                 break
         if first_match is None:
             continue
-        # Search for the warning text anywhere up to (and including) the
-        # first mention.
+        # Acceptable warning placements: anywhere BEFORE the first mention,
+        # OR within the same SENTENCE as the first mention (so an
+        # in-sentence disambiguation right after the term counts). A
+        # sentence ends at the next `.`, `!`, or `?` followed by
+        # whitespace, a newline, or end of body.
+        sentence_end = _sentence_end(doc.stripped, first_match.end(), doc.body_end)
         warning_idx = doc.stripped.find(
-            term.overloaded_warning, doc.body_start, first_match.end()
+            term.overloaded_warning, doc.body_start, sentence_end
         )
         if warning_idx >= 0:
             continue
@@ -59,6 +63,36 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
             )
         )
     return findings
+
+
+def _sentence_end(text: str, start: int, body_end: int) -> int:
+    """Return the offset of the end of the sentence beginning at ``start``.
+
+    A sentence ends at the first ``.``, ``!``, or ``?`` followed by
+    whitespace, a newline, or end of body. ``body_end`` is the upper
+    bound; we never look past it.
+    """
+    i = start
+    while i < body_end:
+        ch = text[i]
+        if ch in ".!?":
+            j = i + 1
+            if j >= body_end:
+                return j
+            nxt = text[j]
+            if nxt in " \t\n\r":
+                return j
+        if ch == "\n":
+            j = i + 1
+            while j < body_end and text[j] in " \t":
+                j += 1
+            if j < body_end and text[j] == "\n":
+                # Blank line ends the sentence even without a terminator.
+                return i
+            i = j
+            continue
+        i += 1
+    return body_end
 
 
 rule = Rule(code=CODE, check=_check, requires_manifest=True)

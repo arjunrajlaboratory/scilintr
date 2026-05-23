@@ -49,7 +49,7 @@ def lint_file(
     respect_waivers: bool = True,
 ) -> list[Finding]:
     p = Path(path)
-    source = p.read_text()
+    source = p.read_text(encoding="utf-8")
     manifest = load_manifest(manifest_path) if manifest_path else None
     return lint_tex(
         source,
@@ -66,6 +66,13 @@ def apply_fixes(source: str, findings: list[Finding]) -> tuple[str, int]:
     Fixes are applied from end-of-document to start so earlier offsets stay
     valid. Returns the rewritten source and the number of fixes applied.
     Findings without a fix are ignored.
+
+    Fixes are skipped (left unapplied, the finding stands) when:
+
+    * the [start, end) range contains a TeX comment (unescaped ``%``) —
+      the offsets came from the stripped source, so a naive rewrite would
+      erase the author's note;
+    * two fixes overlap — the second cannot trust the first's offsets.
     """
     fixes = [f.fix for f in findings if f.fix is not None]
     if not fixes:
@@ -73,6 +80,35 @@ def apply_fixes(source: str, findings: list[Finding]) -> tuple[str, int]:
     # Sort descending by start so we don't shift offsets while rewriting.
     fixes_sorted = sorted(fixes, key=lambda fx: fx.start, reverse=True)
     buf = source
+    applied = 0
+    last_start: int | None = None
     for fx in fixes_sorted:
+        # Overlap guard: applying in descending order, each fix's end must
+        # be ≤ the previous fix's start.
+        if last_start is not None and fx.end > last_start:
+            continue
+        # Comment guard: if the byte range contains an unescaped ``%``,
+        # rewriting it would erase a comment.
+        if _contains_unescaped_percent(buf, fx.start, fx.end):
+            continue
         buf = buf[: fx.start] + fx.replacement + buf[fx.end :]
-    return buf, len(fixes_sorted)
+        last_start = fx.start
+        applied += 1
+    return buf, applied
+
+
+def _contains_unescaped_percent(s: str, start: int, end: int) -> bool:
+    """Mirrors the comment-detection rule in strip_comments: a ``%`` starts
+    a comment unless preceded by an odd number of backslashes."""
+    i = start
+    while i < end:
+        if s[i] == "%":
+            bs = 0
+            j = i - 1
+            while j >= 0 and s[j] == "\\":
+                bs += 1
+                j -= 1
+            if bs % 2 == 0:
+                return True
+        i += 1
+    return False

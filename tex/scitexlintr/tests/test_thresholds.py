@@ -32,6 +32,23 @@ def test_magic_threshold_does_not_fire_for_manifest_value(has_finding, wrap_body
     assert not has_finding(src, MAGIC)
 
 
+def test_unwrapped_threshold_handles_string_manifest_value(wrap_body):
+    """Self-review bug: values_equal_as_snapshot exact-compared str-typed
+    manifest values, so a manifest entry stored as the string ``'0.0500'``
+    (not a JSON number) failed to match ``'0.05'`` in prose. unwrapped
+    silently fell through to magic-tex-threshold (error → warning)."""
+    from scitexlintr import lint_tex, parse_manifest
+
+    manifest = parse_manifest({"numbers": [{"id": "alpha", "value": "0.0500"}]})
+    src = wrap_body(r"With FDR $< 0.05$, we identified the candidates.")
+    findings = lint_tex(src, filename="t.tex", manifest=manifest)
+    rules = {f.rule for f in findings}
+    assert UNWRAPPED in rules, (
+        f"string-typed manifest value didn't match numerically; rules={rules}"
+    )
+    assert MAGIC not in rules, "magic should not fire when manifest has the value"
+
+
 def test_unwrapped_threshold_respects_waiver(has_finding, wrap_body):
     src = wrap_body(
         "% ANALYSIS_OK[unwrapped-threshold]: legacy text duplicated for reviewer reference\n"

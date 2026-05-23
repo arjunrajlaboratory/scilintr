@@ -76,8 +76,16 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
             continue
         num = m.group(0)
 
-        # Manifest match -> caught by raw-generated-value, not us.
-        if manifest is not None and _matches_manifest(manifest, num):
+        # Manifest match -> caught by raw-generated-value, not us. We also
+        # try the leading-minus form: ``_NUMBER_RE`` doesn't capture signs,
+        # so a manifest value of -0.015 in prose ``-0.015`` would otherwise
+        # double-fire (raw on ``-0.015``, unsourced on ``0.015``).
+        signed = num
+        if offset - 1 >= doc.body_start and doc.stripped[offset - 1] == "-":
+            signed = "-" + num
+        if manifest is not None and (
+            _matches_manifest(manifest, num) or _matches_manifest(manifest, signed)
+        ):
             continue
 
         # Threshold context -> magic-tex-threshold / unwrapped-threshold.
@@ -134,6 +142,11 @@ def _is_threshold_context(text: str, offset: int, body_start: int) -> bool:
         return False
     if text[i] in "<>":
         return True
+    # Multi-char comparison spellings: ``<=``, ``>=``, ``!=`` (the threshold
+    # regex matches ``<=`` / ``>=`` too, so we must mirror them here or the
+    # unsourced rule double-fires on top of the threshold rule).
+    if text[i] == "=" and i - 1 >= body_start and text[i - 1] in "<>":
+        return True
     # \le, \leq, \ge, \geq, \ll, \gg
     for cmd in ("\\le", "\\leq", "\\ge", "\\geq", "\\ll", "\\gg"):
         if text.endswith(cmd, body_start, i + 1):
@@ -148,6 +161,12 @@ def _is_reference_context(text: str, offset: int, body_start: int) -> bool:
     # Look back over whitespace then take the preceding word and check
     # against the reference vocabulary.
     i = offset - 1
+    # Skip the opening bracket of a parenthesized reference ('(' / '[')
+    # plus any whitespace/tilde noise between the bracket and the keyword.
+    # ``Equation (5)`` and ``Fig.~(3)`` are the canonical LaTeX idioms;
+    # without this step the keyword walk lands on '(' and aborts.
+    if i >= body_start and text[i] in "([":
+        i -= 1
     while i >= body_start and text[i] in " \t~":
         i -= 1
     if i < body_start:

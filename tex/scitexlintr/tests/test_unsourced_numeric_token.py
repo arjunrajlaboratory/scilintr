@@ -26,6 +26,19 @@ def test_unsourced_passes_figure_reference(has_finding, wrap_body):
     assert not has_finding(src, RULE)
 
 
+def test_unsourced_passes_parenthesized_equation_reference(has_finding, wrap_body):
+    """Self-review bug: ``Equation (5)`` falls through the reference
+    heuristic because '(' isn't an alpha/dot, and the keyword walk-back
+    never starts."""
+    src = wrap_body("Recall Equation (5) and substitute the closure threshold.")
+    assert not has_finding(src, RULE)
+
+
+def test_unsourced_passes_tilde_bracketed_figure_reference(has_finding, wrap_body):
+    src = wrap_body(r"As shown in Fig.~(3), the variance decreases.")
+    assert not has_finding(src, RULE)
+
+
 def test_unsourced_passes_percentage(has_finding, wrap_body):
     src = wrap_body(r"We recovered roughly 50\% of the input reads.")
     assert not has_finding(src, RULE)
@@ -43,10 +56,44 @@ def test_unsourced_passes_threshold_context(has_finding, wrap_body):
     assert not has_finding(src, RULE)
 
 
+def test_unsourced_passes_le_threshold_context(has_finding, wrap_body):
+    """Self-review bug: `<=` / `>=` were not recognized as threshold context,
+    so unsourced double-fired with the threshold rules."""
+    src = wrap_body(r"Using a stricter cutoff $<= 0.01$.")
+    assert not has_finding(src, RULE)
+
+
+def test_unsourced_passes_ge_threshold_context(has_finding, wrap_body):
+    src = wrap_body(r"Effect size $>= 0.5$ was treated as biologically meaningful.")
+    assert not has_finding(src, RULE)
+
+
+def test_unsourced_passes_latex_leq_threshold_context(has_finding, wrap_body):
+    src = wrap_body(r"With FDR $\leq 0.01$, only candidates beyond cutoff remain.")
+    assert not has_finding(src, RULE)
+
+
 def test_unsourced_passes_handwritten_context(has_finding, wrap_body):
     # handwritten-numeric-claim owns ``n = 23`` etc.
     src = wrap_body("We saw n = 23 in earlier work.")
     assert not has_finding(src, RULE)
+
+
+def test_unsourced_skips_negative_when_manifest_has_negative(wrap_body):
+    """Self-review bug: _NUMBER_RE captured only the digits, so a negative
+    manifest value like -0.015 fired raw-generated-value on '-0.015' AND
+    unsourced on '0.015' (sign-stripped, not in manifest). Two findings
+    for one fact."""
+    from scitexlintr import lint_tex, parse_manifest
+
+    manifest = parse_manifest({"numbers": [{"id": "delta", "value": -0.015}]})
+    src = wrap_body("The effect was Delta = -0.015 below the threshold.")
+    findings = lint_tex(src, filename="t.tex", manifest=manifest)
+    rules = {f.rule for f in findings}
+    assert "raw-generated-value" in rules, "raw must still fire"
+    assert "unsourced-numeric-token" not in rules, (
+        f"unsourced fired on sign-stripped '0.015' that the manifest covers; rules={rules}"
+    )
 
 
 def test_unsourced_flags_k_equals(has_finding, wrap_body):

@@ -56,11 +56,22 @@ def test_corpus_matches_markers(corpus_source, corpus_manifest):
         if expect:
             wanted = {r.strip() for r in expect.group("rules").split(",")}
             missing = wanted - fired
+            extra = fired - wanted
             if missing:
                 failures.append(
                     f"line {i + 1} marker LINT-EXPECT[{','.join(sorted(wanted))}] "
                     f"-> target line {target_line}: missing rules {sorted(missing)}; "
                     f"fired={sorted(fired)}"
+                )
+            if extra:
+                # Strict exclusivity: a LINT-EXPECT line must declare every
+                # rule that fires. Declare overlapping rules explicitly so
+                # silent extra firings (which would mean a regression in
+                # one rule's heuristics) become visible.
+                failures.append(
+                    f"line {i + 1} marker LINT-EXPECT[{','.join(sorted(wanted))}] "
+                    f"-> target line {target_line}: extra unexpected rules "
+                    f"{sorted(extra)}; declare them in the marker if intended"
                 )
         elif ok:
             if fired:

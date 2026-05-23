@@ -37,6 +37,22 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
         # Allowed positions: inside the FIRST arg of a wrapper.
         if doc.offset_in_wrapper_first_arg(offset):
             continue
+        # Skip structural-macro args (\\label{}, \\ref{}, \\cite{}, \\input{},
+        # etc.) — the prose mask already excludes those regions for every
+        # other numeric rule; we mirror that here. The macro NAME itself is
+        # always non-prose in the mask (the backslash byte is zeroed), so we
+        # probe the byte immediately AFTER the name.
+        probe = m.end()
+        if probe < len(doc.prose_mask) and not doc.in_prose(probe):
+            # The macro is in a non-prose region. The byte after the name
+            # is also non-prose iff we're inside a structural arg; if we're
+            # in normal prose, the byte after the name is the next prose
+            # char (a space, punctuation, or a brace beginning a normal
+            # argument group). Use the surrounding context to be sure:
+            # check that the macro's NAME offset is inside a structural arg
+            # by looking up the enclosing macro call.
+            if _is_inside_structural_arg(doc, offset):
+                continue
         name = m.group(1)
         line, col = doc.lookup(offset)
         findings.append(
@@ -52,6 +68,27 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
             )
         )
     return findings
+
+
+def _is_inside_structural_arg(doc, offset: int) -> bool:
+    """True if ``offset`` lies inside any argument of a structural macro.
+
+    We use the same STRUCTURAL_ARG_MACROS set the prose mask uses, so
+    behavior matches every other rule: a generated macro buried inside
+    ``\\label{...}`` / ``\\ref{...}`` / ``\\cite{...}`` is non-prose and
+    must not fire bare-generated-macro.
+    """
+    from scitexlintr._parser import STRUCTURAL_ARG_MACROS
+    for call in doc.macro_calls:
+        if call.name not in STRUCTURAL_ARG_MACROS:
+            continue
+        for arg in call.args:
+            if arg.start <= offset < arg.end:
+                return True
+        for opt in call.optional_args:
+            if opt.start <= offset < opt.end:
+                return True
+    return False
 
 
 rule = Rule(code=CODE, check=_check, requires_manifest=True)

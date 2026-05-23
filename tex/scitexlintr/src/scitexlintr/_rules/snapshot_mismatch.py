@@ -29,6 +29,11 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
             entry = manifest.by_macro.get(macro_name)
             if entry is None:
                 continue
+            if entry.value is None:
+                # Null manifest values can't be compared. Skip the rule —
+                # emitting a Fix would otherwise rewrite the snapshot to
+                # the literal string 'None'.
+                continue
             snap_arg = call.args[1]
             snap_text = snap_arg.text
             if values_equal_as_snapshot(entry.value, snap_text):

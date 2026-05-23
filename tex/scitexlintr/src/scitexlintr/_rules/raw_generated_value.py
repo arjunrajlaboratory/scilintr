@@ -82,13 +82,20 @@ def _find_value_matches(text: str, value: object):
         # Build candidate strings:
         #   * canonical (str(int) or repr(float))
         #   * comma-grouped int form (15122 -> 15,122)
+        #   * for floats that repr as scientific notation, also emit the
+        #     unpadded form. ``repr(1e-8)`` is ``'1e-08'`` (zero-padded
+        #     exponent), but prose conventionally writes ``1e-8``.
         canonicals: list[str] = []
         if isinstance(value, int):
             canonicals.append(str(value))
             if abs(value) >= 1000:
                 canonicals.append(f"{value:,}")
         else:
-            canonicals.append(repr(value))
+            canonical = repr(value)
+            canonicals.append(canonical)
+            unpadded = _unpad_exponent(canonical)
+            if unpadded != canonical:
+                canonicals.append(unpadded)
         seen_strs: set[str] = set()
         for cand in canonicals:
             if cand in seen_strs:
@@ -97,6 +104,17 @@ def _find_value_matches(text: str, value: object):
             pattern = re.compile(r"(?<![\w.])" + re.escape(cand) + r"(?![\w.])")
             for m in pattern.finditer(text):
                 yield m.start(), m.end(), cand
+
+
+_EXP_RE = re.compile(r"([eE])([+-]?)0*(\d+)")
+
+
+def _unpad_exponent(s: str) -> str:
+    """Remove leading zeros from the exponent of a scientific-notation literal.
+
+    ``'1e-08'`` → ``'1e-8'``. ``'1e+10'`` → ``'1e+10'`` (no zero to strip).
+    """
+    return _EXP_RE.sub(lambda m: f"{m.group(1)}{m.group(2)}{m.group(3)}", s)
 
 
 rule = Rule(code=CODE, check=_check, requires_manifest=True)

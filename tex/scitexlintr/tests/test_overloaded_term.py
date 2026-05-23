@@ -29,6 +29,17 @@ def test_overloaded_only_fires_on_first_use(findings_for, wrap_body):
     assert len(fl) == 1
 
 
+def test_overloaded_passes_when_warning_in_same_sentence(has_finding, wrap_body):
+    """Self-review bug: str.find searched [body_start, first_match.end()) —
+    a warning that begins AFTER the first term mention in the same
+    sentence was treated as absent. The disambiguation right there
+    should count."""
+    src = wrap_body(
+        "We applied the BCLRT — Not a Wilks-sense LRT; threshold 10 corresponds to Wilks 20."
+    )
+    assert not has_finding(src, RULE)
+
+
 def test_overloaded_respects_waiver(has_finding, wrap_body):
     src = wrap_body(
         "% ANALYSIS_OK[overloaded-term-no-warning]: definition pending in methods\n"

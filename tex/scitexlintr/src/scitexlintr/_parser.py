@@ -50,6 +50,10 @@ class MacroCall:
 _MACRO_NAME_RE = re.compile(r"\\([A-Za-z@]+)\*?")
 
 
+_VERB_INLINE_RE = re.compile(r"\\verb\*?(?P<delim>[^A-Za-z*\s])")
+_VERBATIM_OPEN_RE = re.compile(r"\\begin\s*\{(verbatim\*?|lstlisting|minted)\}")
+
+
 def strip_comments(source: str) -> str:
     """Return a copy of ``source`` with every comment region replaced by spaces.
 
@@ -60,11 +64,21 @@ def strip_comments(source: str) -> str:
 
     TeX rule: ``%`` starts a comment unless preceded by an odd number of
     backslashes (``\\%`` is a literal percent; ``\\\\%`` is again a comment).
+
+    Verbatim regions — ``\\verb|...|`` inline and ``\\begin{verbatim}...
+    \\end{verbatim}`` (plus ``lstlisting`` and ``minted``) — are skipped
+    entirely. ``%`` inside verbatim is a literal percent, not a comment.
     """
     out = list(source)
+    verbatim_ranges = _find_verbatim_ranges(source)
+    in_verbatim = _make_range_check(verbatim_ranges)
+
     i = 0
     n = len(source)
     while i < n:
+        if in_verbatim(i):
+            i += 1
+            continue
         ch = source[i]
         if ch == "%":
             # Count backslashes immediately to the left.
@@ -84,6 +98,48 @@ def strip_comments(source: str) -> str:
                 continue
         i += 1
     return "".join(out)
+
+
+def _find_verbatim_ranges(source: str) -> list[tuple[int, int]]:
+    ranges: list[tuple[int, int]] = []
+    # Inline \verb<delim>...<delim>. The delimiter is whatever non-letter,
+    # non-whitespace, non-* character follows \verb (or \verb*).
+    for m in _VERB_INLINE_RE.finditer(source):
+        delim = m.group("delim")
+        start = m.start()
+        end = source.find(delim, m.end())
+        if end < 0:
+            ranges.append((start, len(source)))
+        else:
+            ranges.append((start, end + 1))
+    # Block verbatim environments.
+    for m in _VERBATIM_OPEN_RE.finditer(source):
+        env = m.group(1)
+        close = re.compile(r"\\end\s*\{" + re.escape(env) + r"\}").search(source, m.end())
+        if close is None:
+            ranges.append((m.start(), len(source)))
+        else:
+            ranges.append((m.start(), close.end()))
+    ranges.sort()
+    return ranges
+
+
+def _make_range_check(ranges: list[tuple[int, int]]):
+    """Return a function that tells whether an offset is inside any range."""
+    if not ranges:
+        return lambda i: False
+
+    import bisect
+    starts = [r[0] for r in ranges]
+
+    def in_range(i: int) -> bool:
+        idx = bisect.bisect_right(starts, i) - 1
+        if idx < 0:
+            return False
+        s, e = ranges[idx]
+        return s <= i < e
+
+    return in_range
 
 
 def find_body_range(stripped: str) -> tuple[int, int]:
@@ -191,9 +247,26 @@ def find_macro_calls(
 
 
 def _skip_whitespace(s: str, start: int, end: int) -> int:
+    """Skip TeX-significant whitespace between a macro and its args.
+
+    Spaces, tabs, and a *single* newline are skippable. A blank line —
+    two newlines in a row — acts as ``\\par`` in TeX and terminates
+    argument scanning. We mirror that: stop at the second newline so
+    ``\\foo\\n\\nbody`` does not pull ``body`` in as an argument.
+    """
     i = start
-    while i < end and s[i] in " \t":
-        i += 1
+    newlines = 0
+    while i < end:
+        ch = s[i]
+        if ch in " \t\r":
+            i += 1
+        elif ch == "\n":
+            newlines += 1
+            if newlines > 1:
+                break
+            i += 1
+        else:
+            break
     return i
 
 

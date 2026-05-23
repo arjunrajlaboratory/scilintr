@@ -58,10 +58,10 @@ def main(argv: list[str] | None = None) -> int:
             respect_waivers=not args.no_waivers,
         )
         if args.write:
-            source = p.read_text()
+            source = p.read_text(encoding="utf-8")
             new_source, n_fixed = apply_fixes(source, findings)
             if n_fixed:
-                p.write_text(new_source)
+                p.write_text(new_source, encoding="utf-8")
                 print(f"{p}: rewrote {n_fixed} snapshot(s)", file=sys.stderr)
             # Re-lint after fixes so the report reflects remaining issues.
             findings = lint_file(
