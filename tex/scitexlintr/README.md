@@ -235,20 +235,41 @@ report.pdf: report.tex .manifest.json
 
 ### CI
 
+A glob inside ``--manifest=…`` is not shell-expanded (the whole
+``--flag=value`` is one token), so multi-report trees need a loop that
+pairs each report with the manifest sitting next to it:
+
 ```yaml
 - name: Lint reports
-  run: scitexlintr analysis/*/reports/*.tex --manifest=analysis/*/reports/.manifest.json
+  run: |
+    for tex in analysis/*/reports/*.tex; do
+      dir=$(dirname "$tex")
+      scitexlintr "$tex" --manifest="$dir/.manifest.json"
+    done
 ```
 
 ### Pre-commit
 
+scitexlintr does not (yet) ship a ``.pre-commit-hooks.yaml``, so the
+``repo:`` form won't install. Use the ``repo: local`` form against the
+already-installed ``scitexlintr`` command:
+
 ```yaml
-- repo: https://github.com/arjunrajlaboratory/scilintr
-  rev: tex-v0.1.0
-  hooks:
-    - id: scitexlintr
-      args: [--manifest=.manifest.json]
+repos:
+  - repo: local
+    hooks:
+      - id: scitexlintr
+        name: scitexlintr
+        entry: scitexlintr
+        language: system
+        files: \.tex$
+        args: [--manifest=.manifest.json]
 ```
+
+This assumes ``scitexlintr`` is on ``$PATH`` (``pip install`` it, or run
+``pre-commit`` inside a venv that has it) and that ``.manifest.json``
+sits alongside the staged ``.tex``. For multiple report directories,
+swap ``args`` for a small wrapper script that mirrors the CI loop above.
 
 ## Relationship to other LaTeX tools
 
