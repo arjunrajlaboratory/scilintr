@@ -1,6 +1,10 @@
 # scilintr
 
-Static analysis for R scientific data analysis code.
+Static analysis for R scientific data analysis code. Sibling of
+[`py/scilintr/`](../../py/scilintr/) (Python code) and
+[`tex/scitexlintr/`](../../tex/scitexlintr/) (LaTeX reports); same
+agent-first design (high recall, structured `ANALYSIS_OK[category]:`
+waivers).
 
 Flags patterns that often correspond to hidden scientific commitments:
 

@@ -256,6 +256,18 @@ instead of failing loudly. R041 was confirmed to fire on a real
 `if (!file.exists(f)) return(NULL)` in `build_report.R` during the
 smoke test that followed implementation.
 
+## Report-side drift (scitexlintr territory)
+
+A separate class of failure modes lives on the report side, not the
+analysis side: a number computed correctly in the analysis becomes
+stale by the time it lands in the `.tex` writeup, a figure is
+regenerated but the prose still describes the old one, an analysis-side
+threshold is relaxed but the abstract still cites the old value.
+[`tex/scitexlintr/`](../tex/scitexlintr/README.md) is the linter for
+that layer. Its rule catalog — snapshot drift, unfingerprinted figures,
+handwritten numeric claims, forbidden aliases, overloaded terms without
+a warning — is disjoint from the analysis-code rules above.
+
 ## What's not captured
 
 Some failure modes are inherently review-level concerns and don't lend
@@ -264,7 +276,8 @@ tooling (e.g., `mycelium:review`) for these:
 
 - Mechanistic mis-attribution at the level of natural-language framing
 - Wrong baseline / wrong metric choice
-- STATUS / MANIFEST / abstract drift
+- STATUS / MANIFEST / abstract drift (within the analysis layer;
+  scitexlintr catches drift between the analysis result and the report)
 - Domain-specific misspecifications (LOH-blind centering, polarity bugs,
   coverage-as-axis)
 - "Half-built" pipeline state where the prose is ahead of the code

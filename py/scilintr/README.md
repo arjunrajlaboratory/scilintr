@@ -1,9 +1,11 @@
 # scilintr (Python)
 
 AST-based linter for hidden scientific commitments in Python data-analysis
-code. Sibling of [`r/scilintr/`](../../r/scilintr/); same waiver mechanism
-(`# ANALYSIS_OK[category]: explanation`), same agent-first design
-philosophy (high recall over precision).
+code. Sibling of [`r/scilintr/`](../../r/scilintr/) (R code) and
+[`tex/scitexlintr/`](../../tex/scitexlintr/) (LaTeX reports); same waiver
+mechanism (`# ANALYSIS_OK[category]: explanation`, ``% ANALYSIS_OK[...]:``
+for the TeX linter), same agent-first design philosophy (high recall
+over precision).
 
 ## Rules
 
