@@ -43,6 +43,29 @@ def test_raw_value_matches_unpadded_scientific(wrap_body):
     )
 
 
+def test_raw_value_flags_trailing_zero_float(has_finding, wrap_body):
+    """``0.050`` in prose must match a manifest ``fdr_threshold = 0.05``.
+
+    Exact-string matching missed this (``repr(0.05) == '0.05' != '0.050'``),
+    and since the value *has* a manifest entry it also escaped
+    unsourced-numeric-token — landing in neither rule. The detector now
+    compares numerically, like snapshot-mismatch does."""
+    src = wrap_body("We thresholded at a false-discovery rate of 0.050 throughout.")
+    assert has_finding(src, RULE)
+
+
+def test_raw_value_flags_higher_precision_float(has_finding, wrap_body):
+    # 0.0500 (more trailing zeros) also equals fdr_threshold 0.05 numerically.
+    src = wrap_body("The cutoff was 0.0500 by convention.")
+    assert has_finding(src, RULE)
+
+
+def test_raw_value_trailing_zero_still_respects_boundary(has_finding, wrap_body):
+    # 0.051 is NOT equal to 0.05 — must not fire.
+    src = wrap_body("A nearby value 0.051 was used elsewhere and is unrelated.")
+    assert not has_finding(src, RULE)
+
+
 def test_raw_value_respects_waiver(has_finding, wrap_body):
     src = wrap_body(
         "% ANALYSIS_OK[raw-generated-value]: this 317 refers to the prior dataset\n"

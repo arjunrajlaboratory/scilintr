@@ -110,13 +110,17 @@ transform of the manifest `id`:
 | `n_samples` | `\NSamples` |
 | `fdr_threshold` | `\FDRThreshold` |
 | `n_de_genes_fdr_0_05` | `\NDEGenesFDRZeroZeroFive` |
+| `x17_module_c1_precision` | `\XOneSevenModuleCOnePrecision` |
 | `diff-expr.n_samples` | `\NSamples` (namespace stripped) |
 | `diff-expr:n_replicates` | `\NReplicates` (colon namespace also stripped) |
 
 The transform: strip the namespace prefix (everything before the last
 `.`, `:`, or `/`), split the local key on `_`, and per segment —
 all-digit → English words digit-by-digit, ≤3-letter all-letter →
-uppercase (acronym), otherwise title-case. Concatenate.
+uppercase (acronym), otherwise title-case the letters **and spell out any
+embedded digit** (`c1` → `COne`, `x17` → `XOneSeven`). Concatenate. Digits
+never survive into a macro name: a LaTeX control word is letters-only, so a
+bare digit would terminate the name (`\C` plus a literal `1`, not `\COne`).
 
 The macros themselves are emitted by upstream tooling (mycelium's
 `render_report_values_tex`, or any equivalent); scitexlintr does not emit

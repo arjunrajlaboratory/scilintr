@@ -35,6 +35,14 @@ from scitexlintr._manifest import id_to_macro_name
         # Digit segments map to English words digit-by-digit
         ("n_de_genes_fdr_0_05", "NDEGenesFDRZeroZeroFive"),
         ("year_2026", "YearTwoZeroTwoSix"),
+        # Mixed letter+digit segments spell out the embedded digits so the
+        # result is a valid TeX control word (letters only). A bare digit
+        # would terminate the macro name: ``\C`` + ``1`` rather than ``\COne``.
+        ("c1_precision", "COnePrecision"),
+        ("x17_module", "XOneSevenModule"),
+        ("pc1_c1_ari", "PcOneCOneARI"),
+        ("weighted_f1_test", "WeightedFOneTest"),
+        ("x17_module_c1_balanced_accuracy_ci_high", "XOneSevenModuleCOneBalancedAccuracyCIHigh"),
         # Empty / odd inputs degrade gracefully
         ("", ""),
         ("_x", "X"),

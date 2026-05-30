@@ -3,10 +3,19 @@
 If the manifest says ``n_de_genes = 317`` and prose contains the bare
 substring ``317`` (outside any ``\\SciVal`` / ``\\SciText`` wrapper), fire.
 
-Numeric values are matched with word boundaries so ``317`` doesn't match
-``3175``. String values are matched verbatim — short string values like
-``"a"`` should not be added to manifests (false-positive risk), but the
-linter itself doesn't enforce a minimum length.
+Numeric values are matched by scanning numeric tokens and comparing them
+**numerically** with the same comparator the ``snapshot-mismatch`` rule
+uses (``values_equal_as_snapshot``). The detector and the comparator must
+agree: a token like ``0.730`` matches a manifest value of ``0.73``
+(trailing zero), ``15,122`` matches ``15122`` (comma grouping), and
+``1e-8`` matches ``1e-08`` / ``0.00000001`` (notation / precision). An
+exact-string match would miss those, and because such a token also "has a
+manifest entry" it would slip past ``unsourced-numeric-token`` too —
+landing in neither rule, silently un-checked. Token boundaries still hold,
+so ``317`` does not match ``3175``. String values are matched verbatim —
+short string values like ``"a"`` should not be added to manifests
+(false-positive risk), but the linter itself doesn't enforce a minimum
+length.
 """
 
 from __future__ import annotations
@@ -15,7 +24,7 @@ import re
 
 from scitexlintr._doc import TexDoc
 from scitexlintr._finding import Finding
-from scitexlintr._manifest import Manifest
+from scitexlintr._manifest import Manifest, values_equal_as_snapshot
 from scitexlintr._rules._base import Rule
 
 CODE = "raw-generated-value"
@@ -58,12 +67,23 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
     return findings
 
 
+# A maximal numeric token: optional sign, an integer part (optionally
+# comma-grouped), an optional fractional part, and an optional exponent.
+# The surrounding ``(?<![\w.])`` / ``(?![\w.])`` guards keep tokens maximal
+# so ``317`` is not matched inside ``3175`` or ``3.175``.
+_NUMERIC_TOKEN_RE = re.compile(
+    r"(?<![\w.])[+-]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:[eE][+-]?\d+)?(?![\w.])"
+)
+
+
 def _find_value_matches(text: str, value: object):
     """Yield ``(start, end, label)`` for every occurrence of ``value`` in ``text``.
 
-    Numerics are matched with a regex anchored on word boundaries; strings
-    are matched verbatim with case-sensitivity (case-insensitive match
-    would over-fire on common words).
+    Numeric values are matched by scanning numeric tokens and comparing
+    numerically (see ``values_equal_as_snapshot``), so trailing-zero,
+    comma-grouped, and scientific-notation variants all match. Strings are
+    matched verbatim with case-sensitivity (a case-insensitive match would
+    over-fire on common words).
     """
     if isinstance(value, str):
         if not value:
@@ -79,42 +99,10 @@ def _find_value_matches(text: str, value: object):
         return
 
     if isinstance(value, (int, float)) and not isinstance(value, bool):
-        # Build candidate strings:
-        #   * canonical (str(int) or repr(float))
-        #   * comma-grouped int form (15122 -> 15,122)
-        #   * for floats that repr as scientific notation, also emit the
-        #     unpadded form. ``repr(1e-8)`` is ``'1e-08'`` (zero-padded
-        #     exponent), but prose conventionally writes ``1e-8``.
-        canonicals: list[str] = []
-        if isinstance(value, int):
-            canonicals.append(str(value))
-            if abs(value) >= 1000:
-                canonicals.append(f"{value:,}")
-        else:
-            canonical = repr(value)
-            canonicals.append(canonical)
-            unpadded = _unpad_exponent(canonical)
-            if unpadded != canonical:
-                canonicals.append(unpadded)
-        seen_strs: set[str] = set()
-        for cand in canonicals:
-            if cand in seen_strs:
-                continue
-            seen_strs.add(cand)
-            pattern = re.compile(r"(?<![\w.])" + re.escape(cand) + r"(?![\w.])")
-            for m in pattern.finditer(text):
-                yield m.start(), m.end(), cand
-
-
-_EXP_RE = re.compile(r"([eE])([+-]?)0*(\d+)")
-
-
-def _unpad_exponent(s: str) -> str:
-    """Remove leading zeros from the exponent of a scientific-notation literal.
-
-    ``'1e-08'`` → ``'1e-8'``. ``'1e+10'`` → ``'1e+10'`` (no zero to strip).
-    """
-    return _EXP_RE.sub(lambda m: f"{m.group(1)}{m.group(2)}{m.group(3)}", s)
+        for m in _NUMERIC_TOKEN_RE.finditer(text):
+            tok = m.group(0)
+            if values_equal_as_snapshot(value, tok):
+                yield m.start(), m.end(), tok
 
 
 rule = Rule(code=CODE, check=_check, requires_manifest=True)
