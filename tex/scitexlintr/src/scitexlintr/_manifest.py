@@ -32,11 +32,17 @@ The id→macro-name transform is deterministic:
          ``05`` → ``ZeroFive``.
        * all-letter segment of length ≤ 3: uppercase
          (``fdr`` → ``FDR``, ``n`` → ``N``, ``de`` → ``DE``).
-       * otherwise: title-case (``samples`` → ``Samples``).
+       * otherwise (mixed letters+digits, or a longer letter run):
+         title-case the letters (first upper, rest lower) and spell out
+         any embedded digit (``c1`` → ``COne``, ``x17`` → ``XOneSeven``,
+         ``samples`` → ``Samples``). Digits are spelled out here too, not
+         just in all-digit segments, because a TeX control word is
+         letters only — a bare digit would terminate the macro name.
     4. Concatenate all segments.
 
-So ``fdr_threshold`` → ``FDRThreshold`` and
-``n_de_genes_fdr_0_05`` → ``NDEGenesFDRZeroZeroFive``.
+So ``fdr_threshold`` → ``FDRThreshold``,
+``n_de_genes_fdr_0_05`` → ``NDEGenesFDRZeroZeroFive``, and
+``x17_module_c1_precision`` → ``XOneSevenModuleCOnePrecision``.
 
 The macro names themselves are emitted by upstream tooling (e.g., mycelium's
 ``render_report_values_tex``); scitexlintr only needs to predict the same
@@ -192,8 +198,20 @@ def id_to_macro_name(manifest_id: str) -> str:
         elif segment.isalpha() and len(segment) <= 3:
             out_segments.append(segment.upper())
         else:
-            # Mixed or long letter segment — title-case it.
-            out_segments.append(segment[0].upper() + segment[1:].lower())
+            # Mixed or long letter segment. Title-case the letters and spell
+            # out any embedded digits: a TeX control word is letters only, so
+            # a bare digit would silently terminate the macro name (``\C`` plus
+            # literal ``1`` rather than ``\COne``) and break both the emitted
+            # \newcommand and the macro lookup below.
+            chars: list[str] = []
+            for j, ch in enumerate(segment):
+                if ch.isdigit():
+                    chars.append(_DIGIT_WORDS[ch])
+                elif j == 0:
+                    chars.append(ch.upper())
+                else:
+                    chars.append(ch.lower())
+            out_segments.append("".join(chars))
 
     return "".join(out_segments)
 
