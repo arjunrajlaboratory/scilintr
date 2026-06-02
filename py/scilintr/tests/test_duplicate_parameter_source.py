@@ -128,3 +128,73 @@ def test_cross_file_respects_waiver(tmp_path):
     findings = lint_paths([str(tmp_path)])
     dup = [f for f in findings if f.rule == RULE]
     assert not dup, f"waiver should suppress cross-file finding, got {dup}"
+
+
+# ---------------------------------------------------------------------------
+# Directory-scoped comparison (issue #5): a constant name that recurs across
+# *independent analyses* (different directories) with different values is NOT a
+# shared source of truth and must not be reconciled. The comparison is scoped to
+# files sharing a directory.
+# ---------------------------------------------------------------------------
+
+
+def test_cross_file_does_not_compare_across_directories(tmp_path):
+    """Two independent analyses in separate directories that happen to share a
+    constant name with different values are not a conflict — there is no shared
+    source of truth between them."""
+    from scilintr import lint_paths
+
+    audit = tmp_path / "A0.2-hub-audit"
+    leaderboard = tmp_path / "A1.1-centrality-leaderboard"
+    audit.mkdir()
+    leaderboard.mkdir()
+    (audit / "run.py").write_text("TOP_N = 100\n")
+    (leaderboard / "run.py").write_text("TOP_N = 50\n")
+
+    findings = lint_paths([str(tmp_path)])
+    dup = [f for f in findings if f.rule == RULE]
+    assert not dup, (
+        f"independent analyses sharing a constant name is not a conflict, got {dup}"
+    )
+
+
+def test_cross_file_flags_conflict_within_same_directory(tmp_path):
+    """Within one analysis directory, a constant that disagrees across sibling
+    scripts IS a genuine conflict — e.g. the projections run would use a different
+    null than the primary run, silently breaking an apples-to-apples comparison."""
+    from scilintr import lint_paths
+
+    analysis = tmp_path / "A1.2-leiden-communities"
+    analysis.mkdir()
+    (analysis / "run.py").write_text("N_NULL = 3\n")
+    (analysis / "run_projections.py").write_text(
+        "import argparse\n"
+        "parser = argparse.ArgumentParser()\n"
+        "parser.add_argument('--n-null', type=int, default=20)\n"
+        "args = parser.parse_args()\n"
+    )
+
+    findings = lint_paths([str(tmp_path)])
+    dup = [f for f in findings if f.rule == RULE]
+    assert dup, "intra-directory drift within a single analysis should still be caught"
+
+
+def test_cross_file_independent_analyses_do_not_drown_real_conflict(tmp_path):
+    """A genuine within-analysis conflict survives even when an unrelated analysis
+    in another directory reuses the same constant name with yet another value."""
+    from scilintr import lint_paths
+
+    analysis = tmp_path / "A1.2-leiden-communities"
+    other = tmp_path / "A0.8-graph-metrics"
+    analysis.mkdir()
+    other.mkdir()
+    (analysis / "run.py").write_text("N_NULL = 3\n")
+    (analysis / "run_projections.py").write_text("N_NULL = 50\n")
+    (other / "run.py").write_text("N_NULL = 20\n")
+
+    findings = lint_paths([str(tmp_path)])
+    dup = [f for f in findings if f.rule == RULE]
+    # Exactly one conflict: the A1.2 intra-directory disagreement. The A0.8 reuse
+    # is independent and must not create additional findings.
+    assert len(dup) == 1, f"expected one intra-analysis conflict only, got {dup}"
+    assert "A1.2-leiden-communities" in dup[0].filename

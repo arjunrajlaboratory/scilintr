@@ -13,6 +13,7 @@ the per-file rule; cross-file conflicts are caught here.
 from __future__ import annotations
 
 import ast
+import os
 from collections import defaultdict
 
 from scilintr._finding import Finding
@@ -93,6 +94,21 @@ def _collect_cli_defaults(tree: ast.AST) -> list[tuple[str, int, tuple]]:
 
 
 def _check_files(parsed: dict[str, tuple[ast.AST, str]]) -> list[Finding]:
+    # A constant/CLI default is only a shared source of truth among files that
+    # live in the same analysis directory. Two independent analyses that reuse a
+    # generic name (TOP_N, N_NULL, SEED, …) with different values have nothing to
+    # reconcile, so compare only within a directory boundary (issue #5).
+    by_dir: dict[str, dict[str, tuple[ast.AST, str]]] = defaultdict(dict)
+    for filename, parsed_file in parsed.items():
+        by_dir[os.path.dirname(filename)][filename] = parsed_file
+
+    findings: list[Finding] = []
+    for group in by_dir.values():
+        findings.extend(_check_group(group))
+    return findings
+
+
+def _check_group(parsed: dict[str, tuple[ast.AST, str]]) -> list[Finding]:
     # Aggregate: stem -> list[(filename, line, value)]
     sources: dict[str, list[tuple[str, int, tuple]]] = defaultdict(list)
     for filename, (tree, _source) in parsed.items():
