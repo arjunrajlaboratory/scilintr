@@ -27,8 +27,23 @@ def _is_numeric_literal(node: ast.AST) -> bool:
     )
 
 
+def _is_natural_floor(op: ast.cmpop, value) -> bool:
+    """``> 0`` / ``>= 0`` is a natural floor, not a tunable cutoff.
+
+    Dropping empty/zero entries (``deg[deg > 0]``, ``p[p >= 0]``) selects the
+    participating elements / keeps a log defined; ``0`` is the algebraic floor of
+    a count or probability, almost never a *chosen* threshold. Only literal ``0``
+    under ``>`` / ``>=`` qualifies — ``> 1`` is a real cutoff, and ``< 0`` is a
+    sign filter, so both stay flagged.
+    """
+    return isinstance(op, (ast.Gt, ast.GtE)) and value == 0
+
+
 def _flag_compare(node: ast.Compare) -> bool:
-    return any(_is_numeric_literal(c) for c in node.comparators)
+    return any(
+        _is_numeric_literal(comparator) and not _is_natural_floor(op, comparator.value)
+        for op, comparator in zip(node.ops, node.comparators)
+    )
 
 
 def _walk_subscript_filters(tree: ast.AST):

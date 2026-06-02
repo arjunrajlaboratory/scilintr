@@ -18,7 +18,7 @@ implemented:
 | `silent-pass` | `except ...: pass` (any exception type) |
 | `return-none-on-missing-input` | `if not path.exists(): return None` |
 | `positional-metadata-access` | `df.iloc[:, 3]` for metadata columns |
-| `magic-threshold` | Bare numeric thresholds in comparisons (`padj < 0.05`) |
+| `magic-threshold` | Bare numeric thresholds in DataFrame filters (`padj < 0.05`); `> 0` / `>= 0` natural floors are exempt |
 | `unchecked-merge` | `pd.merge(...)` with no `validate=` or row-count assert |
 | `positional-sample-alignment` | Aligning two DataFrames by row order, not key |
 | `unannotated-filter` | `df = df[df.col > X]` with no length/count log |
@@ -37,7 +37,7 @@ implemented:
 | `plot-side-effect-filter` | Plot code that mutates the DataFrame in place |
 | `unconsumed-cli-flag` | `parser.add_argument(...)` whose dest is never read |
 | `duplicate-parameter-source` | Same param declared in two places (per file) |
-| `duplicate-parameter-source` (cross-file) | Constant in one file disagreeing with CLI default in another |
+| `duplicate-parameter-source` (cross-file) | Constant in one file disagreeing with CLI default in another, scoped to a shared directory |
 | `runtime-assert` | `assert` in production code (stripped by `-O`) |
 | `unvalidated-config` | Config dict read without a schema check |
 | `sentinel-mask-assignment` | `df.loc[mask, col] = -999` style sentinel writes |
