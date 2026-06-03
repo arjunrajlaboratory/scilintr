@@ -14,6 +14,7 @@ from scilintr._rules.positional_metadata_access import rule as positional_metada
 from scilintr._rules.positional_sample_alignment import rule as positional_sample_alignment
 from scilintr._rules.return_none_on_missing_input import rule as return_none_on_missing_input
 from scilintr._rules.silent_pass import rule as silent_pass
+from scilintr._rules.silent_stub_fallback import rule as silent_stub_fallback
 from scilintr._rules.synthetic_data_generation import rule as synthetic_data_generation
 from scilintr._rules.unannotated_filter import rule as unannotated_filter
 from scilintr._rules.unannotated_missingness import rule as unannotated_missingness
@@ -36,6 +37,7 @@ from scilintr._rules.warning_suppression import rule as warning_suppression
 ALL_RULES: list[Rule] = [
     broad_exception,
     silent_pass,
+    silent_stub_fallback,
     return_none_on_missing_input,
     positional_metadata_access,
     magic_threshold,

@@ -16,6 +16,7 @@ implemented:
 |---|---|
 | `broad-exception` | `except Exception:` without re-raise — silent error swallowing |
 | `silent-pass` | `except ...: pass` (any exception type) |
+| `silent-stub-fallback` | `except ...: def f(...): return None` — failure path degrades to a no-op stub (or no-op lambda rebind) |
 | `return-none-on-missing-input` | `if not path.exists(): return None` |
 | `positional-metadata-access` | `df.iloc[:, 3]` for metadata columns |
 | `magic-threshold` | Bare numeric thresholds in DataFrame filters (`padj < 0.05`); `> 0` / `>= 0` natural floors are exempt |
