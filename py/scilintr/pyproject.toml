@@ -1,6 +1,6 @@
 [project]
 name = "scilintr"
-version = "0.1.0"
+version = "0.1.1"
 description = "AST-based scientific code lint for Python analysis projects — flags hidden scientific commitments."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.11"
