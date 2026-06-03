@@ -18,6 +18,7 @@ implemented:
 | `silent-pass` | `except ...: pass` (any exception type) |
 | `silent-stub-fallback` | `except ...: def f(...): return None` — failure path degrades to a no-op stub (or no-op lambda rebind) |
 | `silent-fallback-return` | `except ...: return None` (or `[]`/`{}`/`0`/`NaN`) — failure path returns a degraded default |
+| `silent-default-rebind` | `except ...: x = {}` (or `[]`/`None`/`0`/`NaN`) — failure path rebinds a name to a degraded default |
 | `return-none-on-missing-input` | `if not path.exists(): return None` |
 | `positional-metadata-access` | `df.iloc[:, 3]` for metadata columns |
 | `magic-threshold` | Bare numeric thresholds in DataFrame filters (`padj < 0.05`); `> 0` / `>= 0` natural floors are exempt |
