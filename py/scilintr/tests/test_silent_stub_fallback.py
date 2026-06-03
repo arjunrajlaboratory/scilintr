@@ -49,6 +49,14 @@ except ModuleNotFoundError:
     register_value = lambda *_args, **_kwargs: None
 """
 
+# `lambda *a, **k: ...` is the Ellipsis spelling of the same no-op lambda.
+BAD_LAMBDA_REBIND_ELLIPSIS = """
+try:
+    from plugin import emit
+except ImportError:
+    emit = lambda *_args, **_kwargs: ...
+"""
+
 
 def test_silent_stub_fallback_flags_def_stub(has_finding):
     assert has_finding(BAD_DEF_STUB, "silent-stub-fallback")
@@ -64,6 +72,10 @@ def test_silent_stub_fallback_flags_def_stub_ellipsis(has_finding):
 
 def test_silent_stub_fallback_flags_lambda_rebind(has_finding):
     assert has_finding(BAD_LAMBDA_REBIND, "silent-stub-fallback")
+
+
+def test_silent_stub_fallback_flags_lambda_rebind_ellipsis(has_finding):
+    assert has_finding(BAD_LAMBDA_REBIND_ELLIPSIS, "silent-stub-fallback")
 
 
 # -------------------- not flagged: real fallbacks / unrelated defs --------------------

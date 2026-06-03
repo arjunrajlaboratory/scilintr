@@ -59,7 +59,8 @@ def _is_noop_lambda_rebind(node: ast.stmt) -> bool:
     if not isinstance(value, ast.Lambda):
         return False
     body = value.body
-    return isinstance(body, ast.Constant) and body.value is None
+    # `lambda: None` and `lambda: ...` are both no-op bodies (mirrors the def form).
+    return isinstance(body, ast.Constant) and (body.value is None or body.value is Ellipsis)
 
 
 def _check(tree: ast.AST, source: str, filename: str) -> list[Finding]:
