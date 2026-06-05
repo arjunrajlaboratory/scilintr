@@ -8,7 +8,8 @@ waivers).
 
 Flags patterns that often correspond to hidden scientific commitments:
 
-- silent `tryCatch` error swallowing
+- silent `tryCatch` error swallowing — degraded `return`, `<<-`
+  rebind, and no-op stub-function costumes
 - `if (!file.exists(path)) return(NULL)` silent absence propagation
 - smuggled function-signature defaults
 - label leakage in selection-stage code
@@ -31,12 +32,14 @@ catalogue of bugs each rule catches.
 
 ## Status
 
-v0.1.0 — all 40+ rules implemented (R001–R044, with R020/R025/R026
-cross-file). 155 fixture tests passing. Rules R041–R044 were ported
+v0.1.1 — all 40+ rules implemented (R001–R044, with R020/R025/R026
+cross-file). 161 fixture tests passing. Rules R041–R044 were ported
 back from the Python sibling (`py/scilintr/`) — they catch failure
 modes (silent absence propagation, unconsumed CLI flags, unvalidated
 config, empty-string sentinel masks) that the Python package
-encountered first in real code.
+encountered first in real code. R030 grew its silent-fallback coverage
+(multi-statement degraded returns, `<<-` rebinds, no-op stub functions)
+in step with the Python silent-fallback family.
 
 ## Usage
 

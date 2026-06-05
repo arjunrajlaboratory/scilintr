@@ -56,25 +56,71 @@ per_file_linters <- function() {
 
 # R030 -- silent tryCatch error swallowing ------------------------------
 
-#' Flag `tryCatch(..., error = function(e) <literal>)`.
+#' Flag a `tryCatch(..., error = ...)` handler that silently degrades.
 #'
-#' A handler that returns a single literal (NUM_CONST, NULL_CONST,
-#' STR_CONST -- covers `NA`, `NA_real_`, `NULL`, `0`, `""`, etc.)
-#' silently maps errors to a numerically-valid stand-in. Caller-side
-#' arithmetic then continues with a meaningless value.
+#' The silent-fallback family in three costumes, all sharing one hidden
+#' commitment -- "on failure this quietly proceeds on a meaningless
+#' value instead of stopping":
 #'
-#' Multi-statement handler bodies (`function(e) { warning(...); NA }`)
-#' are not flagged here -- they may still swallow, but they at least
-#' do *something* observable. A stricter variant could check the last
-#' statement of a `{...}` body; deferred for now.
+#' \itemize{
+#'   \item \strong{return}: the handler's return value is a bare literal
+#'     (NUM_CONST, NULL_CONST, STR_CONST -- `NA`, `NA_real_`, `NULL`,
+#'     `0`, `""`, ...), whether returned directly
+#'     (`function(e) NA`) or as the last statement of a multi-statement
+#'     block (`function(e) { warning(...); NA }`). Caller-side code then
+#'     continues with a numerically-valid stand-in.
+#'   \item \strong{rebind}: the handler superassigns (`<<-`) an outer
+#'     name to a degraded default (`cohort <<- NULL`), so downstream
+#'     stages run on a placeholder. `<<-` escapes the handler scope, so
+#'     it is flagged wherever it sits in the body.
+#'   \item \strong{stub}: the handler superassigns an outer name to a
+#'     no-op stub function (`score_fn <<- function(...) NULL`), silently
+#'     disabling behavior on the failure path.
+#' }
+#'
+#' Doing real work and returning a genuine recovered value (a cached
+#' object, an alternate computation, `stop(e)` to rethrow) is left
+#' alone -- only bare placeholders and no-op stubs are flagged. Local
+#' (`<-`) rebinds are not flagged: in R they die with the handler frame
+#' and have no external effect.
 #'
 #' @keywords internal
 silent_trycatch_linter <- function() {
+  literal_tags <- c("NUM_CONST", "NULL_CONST", "STR_CONST")
+
+  # An <expr> that is a single bare constant (`NA` / `NULL` / `0` / "").
+  is_bare_literal <- function(node) {
+    if (length(node) == 0L) return(FALSE)
+    kids <- xml2::xml_children(node)
+    length(kids) == 1L && xml2::xml_name(kids[[1]]) %in% literal_tags
+  }
+
+  # Direct-child <expr> statements of a handler body: the statements of
+  # a `{...}` block, or the single expression if the body is not a block.
+  body_statements <- function(body) {
+    kids <- xml2::xml_children(body)
+    if (length(kids) > 0L && xml2::xml_name(kids[[1]]) == "OP-LEFT-BRACE") {
+      as.list(xml2::xml_find_all(body, "expr"))
+    } else {
+      list(body)
+    }
+  }
+
+  # A `function(...) <noop>` whose body evaluates to a bare literal.
+  is_stub_function <- function(node) {
+    if (length(node) == 0L) return(FALSE)
+    if (length(xml2::xml_find_first(node, "FUNCTION")) == 0L) return(FALSE)
+    fbody <- xml2::xml_find_first(node, "expr[last()]")
+    if (length(fbody) == 0L) return(FALSE)
+    stmts <- body_statements(fbody)
+    length(stmts) > 0L && is_bare_literal(stmts[[length(stmts)]])
+  }
+
   lintr::Linter(function(source_expression) {
     xml <- source_expression$xml_parsed_content
     if (is.null(xml)) return(list())
 
-    # Find every `function(...) <body>` that's the value of an `error =`
+    # Every `function(...) <body>` that's the value of an `error =`
     # named argument inside a `tryCatch(...)` call.
     handlers <- xml2::xml_find_all(
       xml,
@@ -85,26 +131,58 @@ silent_trycatch_linter <- function() {
       )
     )
 
-    bad <- lapply(as.list(handlers), function(h) {
-      body <- xml2::xml_find_first(h, "expr[last()]")
-      if (length(body) == 0L) return(NULL)
-      children <- xml2::xml_children(body)
-      if (length(children) != 1L) return(NULL)
-      tag <- xml2::xml_name(children[[1]])
-      if (!tag %in% c("NUM_CONST", "NULL_CONST", "STR_CONST")) {
-        return(NULL)
-      }
-      lintr::Lint(
+    lints <- list()
+    emit <- function(node, why) {
+      lints[[length(lints) + 1L]] <<- lintr::Lint(
         filename    = source_expression$filename,
-        line_number = as.integer(xml2::xml_attr(body, "line1")),
+        line_number = as.integer(xml2::xml_attr(node, "line1")),
         type        = "warning",
-        message     = paste(
-          "R030: tryCatch swallows error and returns a literal --",
-          "log explicitly or rethrow."
-        )
+        message     = paste("R030:", why)
       )
-    })
+    }
 
-    bad[!vapply(bad, is.null, logical(1))]
+    for (h in as.list(handlers)) {
+      body <- xml2::xml_find_first(h, "expr[last()]")
+      if (length(body) == 0L) next
+      stmts <- body_statements(body)
+      if (length(stmts) == 0L) next
+
+      # return costume -- the handler's return value is a bare literal.
+      last <- stmts[[length(stmts)]]
+      if (is_bare_literal(last)) {
+        emit(last, paste(
+          "tryCatch error handler returns a bare literal --",
+          "the failure path silently substitutes a placeholder;",
+          "log explicitly or rethrow."
+        ))
+      }
+
+      # rebind / stub costume -- a `<<-` on the failure path rebinds an
+      # outer name to a degraded default or a no-op stub. `<<-` escapes
+      # the handler scope and still runs when guarded by control flow
+      # (`if (...) cohort <<- NULL`), so search the whole body, not just
+      # the top-level statements. `<-` and `<<-` share the LEFT_ASSIGN
+      # token, so disambiguate on the operator text.
+      assigns <- xml2::xml_find_all(body, ".//expr[LEFT_ASSIGN]")
+      for (s in as.list(assigns)) {
+        if (xml2::xml_text(xml2::xml_find_first(s, "LEFT_ASSIGN")) != "<<-") next
+        rhs <- xml2::xml_find_first(s, "expr[last()]")
+        if (is_bare_literal(rhs)) {
+          emit(s, paste(
+            "tryCatch error handler superassigns a degraded default",
+            "(NA/NULL/0/...) -- the analysis silently continues on a",
+            "placeholder; recover a real value or rethrow."
+          ))
+        } else if (is_stub_function(rhs)) {
+          emit(s, paste(
+            "tryCatch error handler superassigns a no-op stub function",
+            "-- the failure path silently disables behavior; provide a",
+            "real fallback or rethrow."
+          ))
+        }
+      }
+    }
+
+    lints
   })
 }
