@@ -28,7 +28,7 @@ scilintr/
 ├── analysis_lint_strategy.md   <- the rule spec; language-agnostic
 ├── docs/
 │   └── failure-modes.md        <- catalogued bugs each rule catches
-├── r/scilintr/                 <- R package (v0.1.1, 44 rules, 160 tests)
+├── r/scilintr/                 <- R package (v0.1.1, 44 rules, 161 tests)
 │   └── ...
 ├── py/scilintr/                <- Python package (v0.1.0, 27 rules, 139 tests)
 │   └── ...

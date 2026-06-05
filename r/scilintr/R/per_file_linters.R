@@ -106,13 +106,6 @@ silent_trycatch_linter <- function() {
     }
   }
 
-  # A `<<-` superassignment statement. `<-` and `<<-` share the
-  # LEFT_ASSIGN token, so disambiguate on the operator text.
-  is_superassign <- function(node) {
-    op <- xml2::xml_find_first(node, "LEFT_ASSIGN")
-    length(op) > 0L && xml2::xml_text(op) == "<<-"
-  }
-
   # A `function(...) <noop>` whose body evaluates to a bare literal.
   is_stub_function <- function(node) {
     if (length(node) == 0L) return(FALSE)
@@ -165,9 +158,14 @@ silent_trycatch_linter <- function() {
       }
 
       # rebind / stub costume -- a `<<-` on the failure path rebinds an
-      # outer name to a degraded default or a no-op stub.
-      for (s in stmts) {
-        if (!is_superassign(s)) next
+      # outer name to a degraded default or a no-op stub. `<<-` escapes
+      # the handler scope and still runs when guarded by control flow
+      # (`if (...) cohort <<- NULL`), so search the whole body, not just
+      # the top-level statements. `<-` and `<<-` share the LEFT_ASSIGN
+      # token, so disambiguate on the operator text.
+      assigns <- xml2::xml_find_all(body, ".//expr[LEFT_ASSIGN]")
+      for (s in as.list(assigns)) {
+        if (xml2::xml_text(xml2::xml_find_first(s, "LEFT_ASSIGN")) != "<<-") next
         rhs <- xml2::xml_find_first(s, "expr[last()]")
         if (is_bare_literal(rhs)) {
           emit(s, paste(

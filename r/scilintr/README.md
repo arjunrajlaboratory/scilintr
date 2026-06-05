@@ -33,7 +33,7 @@ catalogue of bugs each rule catches.
 ## Status
 
 v0.1.1 — all 40+ rules implemented (R001–R044, with R020/R025/R026
-cross-file). 160 fixture tests passing. Rules R041–R044 were ported
+cross-file). 161 fixture tests passing. Rules R041–R044 were ported
 back from the Python sibling (`py/scilintr/`) — they catch failure
 modes (silent absence propagation, unconsumed CLI flags, unvalidated
 config, empty-string sentinel masks) that the Python package
