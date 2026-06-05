@@ -2,20 +2,36 @@
 % Please edit documentation in R/per_file_linters.R
 \name{silent_trycatch_linter}
 \alias{silent_trycatch_linter}
-\title{Flag \verb{tryCatch(..., error = function(e) <literal>)}.}
+\title{Flag a \code{tryCatch(..., error = ...)} handler that silently degrades.}
 \usage{
 silent_trycatch_linter()
 }
 \description{
-A handler that returns a single literal (NUM_CONST, NULL_CONST,
-STR_CONST -- covers \code{NA}, \code{NA_real_}, \code{NULL}, \code{0}, \code{""}, etc.)
-silently maps errors to a numerically-valid stand-in. Caller-side
-arithmetic then continues with a meaningless value.
+The silent-fallback family in three costumes, all sharing one hidden
+commitment -- "on failure this quietly proceeds on a meaningless
+value instead of stopping":
 }
 \details{
-Multi-statement handler bodies (\code{function(e) { warning(...); NA }})
-are not flagged here -- they may still swallow, but they at least
-do \emph{something} observable. A stricter variant could check the last
-statement of a \code{{...}} body; deferred for now.
+\itemize{
+\item \strong{return}: the handler's return value is a bare literal
+(NUM_CONST, NULL_CONST, STR_CONST -- \code{NA}, \code{NA_real_}, \code{NULL},
+\code{0}, \code{""}, ...), whether returned directly
+(\code{function(e) NA}) or as the last statement of a multi-statement
+block (\code{function(e) { warning(...); NA }}). Caller-side code then
+continues with a numerically-valid stand-in.
+\item \strong{rebind}: the handler superassigns (\verb{<<-}) an outer
+name to a degraded default (\code{cohort <<- NULL}), so downstream
+stages run on a placeholder. \verb{<<-} escapes the handler scope, so
+it is flagged wherever it sits in the body.
+\item \strong{stub}: the handler superassigns an outer name to a
+no-op stub function (\code{score_fn <<- function(...) NULL}), silently
+disabling behavior on the failure path.
+}
+
+Doing real work and returning a genuine recovered value (a cached
+object, an alternate computation, \code{stop(e)} to rethrow) is left
+alone -- only bare placeholders and no-op stubs are flagged. Local
+(\verb{<-}) rebinds are not flagged: in R they die with the handler frame
+and have no external effect.
 }
 \keyword{internal}

@@ -1,6 +1,6 @@
 Package: scilintr
 Title: Scientific Code Lint for R Analyses
-Version: 0.1.0
+Version: 0.1.1
 Authors@R: person("Arjun", "Raj", email = "arjunraj@seas.upenn.edu",
                   role = c("aut", "cre"))
 Description: Static analysis for R scientific data analysis code. Flags
