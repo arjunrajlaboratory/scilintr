@@ -7,6 +7,13 @@
 #' @param path Path to a `.R` file.
 #' @param config Optional configuration list (loaded from `.scilintr.yml`).
 #' @return A list of `scilintr_finding` records.
+#' @examples
+#' # Lint a tiny self-contained file in the session temp directory.
+#' tmp <- tempfile(fileext = ".R")
+#' writeLines("x <- 1", tmp)
+#' findings <- lint_file(tmp)
+#' length(findings)
+#' unlink(tmp)
 #' @export
 lint_file <- function(path, config = NULL) {
   if (!file.exists(path)) return(list())
@@ -35,6 +42,14 @@ lint_file <- function(path, config = NULL) {
 #' @param root Project root directory.
 #' @param config Optional configuration list.
 #' @return A list of `scilintr_finding` records aggregated across files.
+#' @examples
+#' # Build a throwaway one-file project inside the session temp directory.
+#' proj <- file.path(tempdir(), "scilintr-demo")
+#' dir.create(proj, showWarnings = FALSE)
+#' writeLines("y <- 2", file.path(proj, "analysis.R"))
+#' findings <- lint_project(proj)
+#' length(findings)
+#' unlink(proj, recursive = TRUE)
 #' @export
 lint_project <- function(root = ".", config = NULL) {
   files <- list.files(root, pattern = "\\.R$", recursive = TRUE,

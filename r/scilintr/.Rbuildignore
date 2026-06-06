@@ -4,3 +4,4 @@
 ^tests/run-tests\.R$
 ^README\.md$
 ^\.DS_Store$
+^cran-comments\.md$
