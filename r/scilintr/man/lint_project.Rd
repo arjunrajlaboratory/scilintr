@@ -18,3 +18,12 @@ A list of \code{scilintr_finding} records aggregated across files.
 Walks every \code{.R} file, runs the per-file linters, then builds the
 project index and runs the cross-file rules against it.
 }
+\examples{
+# Build a throwaway one-file project inside the session temp directory.
+proj <- file.path(tempdir(), "scilintr-demo")
+dir.create(proj, showWarnings = FALSE)
+writeLines("y <- 2", file.path(proj, "analysis.R"))
+findings <- lint_project(proj)
+length(findings)
+unlink(proj, recursive = TRUE)
+}

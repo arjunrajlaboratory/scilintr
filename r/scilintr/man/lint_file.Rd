@@ -19,3 +19,11 @@ Runs every registered per-file linter against \code{path}, converts the
 resulting \code{lintr::Lint} objects to \code{scilintr_finding} records, and
 applies the \code{ANALYSIS_OK[...]} waiver filter.
 }
+\examples{
+# Lint a tiny self-contained file in the session temp directory.
+tmp <- tempfile(fileext = ".R")
+writeLines("x <- 1", tmp)
+findings <- lint_file(tmp)
+length(findings)
+unlink(tmp)
+}
