@@ -44,7 +44,7 @@ in step with the Python silent-fallback family.
 ## Usage
 
 ```r
-remotes::install_github("user/scilintr")
+install.packages("scilintr")   # from CRAN
 
 # in a project root:
 scilintr::lint_project(".")
