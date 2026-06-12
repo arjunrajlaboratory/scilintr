@@ -30,7 +30,7 @@ scilintr/
 │   └── failure-modes.md        <- catalogued bugs each rule catches
 ├── r/scilintr/                 <- R package (v0.1.1, 44 rules, 161 tests)
 │   └── ...
-├── py/scilintr/                <- Python package (v0.1.0, 27 rules, 139 tests)
+├── py/scilintr/                <- Python package (v0.1.1, 27 rules, 139 tests)
 │   └── ...
 └── tex/scitexlintr/            <- LaTeX report linter (v0.1.0, 10 rules, 117 tests)
     └── ...
@@ -64,8 +64,10 @@ catalog and the wrapper-macro / manifest contract.
 ### R
 
 ```r
-# From GitHub:
-remotes::install_github("arjunrajlaboratory/scilintr", subdir = "r/scilintr")
+install.packages("scilintr")   # from CRAN
+
+# Or the development version:
+# remotes::install_github("arjunrajlaboratory/scilintr", subdir = "r/scilintr")
 
 # In a project root:
 scilintr::lint_project(".")
@@ -80,7 +82,7 @@ Rscript -e 'scilintr::main()' path/to/project
 ### Python
 
 ```bash
-pip install "scilintr @ git+https://github.com/arjunrajlaboratory/scilintr.git#subdirectory=py/scilintr"
+pip install scilintr   # from PyPI
 ```
 
 CLI:
@@ -103,7 +105,7 @@ findings = lint_paths(["path/to/dir/"])
 ### LaTeX reports (scitexlintr)
 
 ```bash
-pip install "scitexlintr @ git+https://github.com/arjunrajlaboratory/scilintr.git#subdirectory=tex/scitexlintr"
+pip install scitexlintr   # from PyPI
 ```
 
 CLI:
@@ -162,11 +164,11 @@ claims are then matched against the manifest's published contract.
 
 ## Status
 
-- **R package (v0.1.0)** — 44 rules implemented (R001–R044, including
-  R020/R025/R026 cross-file). 155 testthat fixtures passing. `R CMD
+- **R package (v0.1.1)** — 44 rules implemented (R001–R044, including
+  R020/R025/R026 cross-file). 161 testthat fixtures passing. `R CMD
   check --as-cran` clean. Tested against real analysis code with a
   ~62% noise reduction from naive matching (after v1.1 tightening).
-- **Python package (v0.1.0)** — 27 rules implemented (`broad-exception`,
+- **Python package (v0.1.1)** — 27 rules implemented (`broad-exception`,
   `unchecked-merge`, `magic-threshold`, `label-in-blind-stage`,
   `synthetic-data-generation`, …). 139 pytest tests passing. `python -m
   build` produces clean wheel + sdist; `twine check` PASSED.
@@ -180,9 +182,9 @@ claims are then matched against the manifest's published contract.
   Reviewed twice by automated review (codex) on PR #1; six findings
   addressed across two rounds.
 
-None are on PyPI / CRAN yet — install from this repo via the commands
-above. All three are structurally ready for upload when the time
-comes.
+All three are published: `scilintr` (Python) and `scitexlintr` are on
+PyPI, and `scilintr` (R) is on CRAN (published 2026-06-12). Install with
+the commands in the [Install](#install) section above.
 
 ## See also
 

@@ -52,8 +52,7 @@ for the bugs each rule catches.
 ## Install / use
 
 ```bash
-cd py/scilintr
-pip install -e ".[dev]"
+pip install scilintr        # from PyPI
 
 # lint a file or directory
 scilintr path/to/analysis/

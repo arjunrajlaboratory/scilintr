@@ -129,10 +129,8 @@ them — it only predicts their names so it can match snapshots.
 ## Install
 
 ```bash
-pip install "scitexlintr @ git+https://github.com/arjunrajlaboratory/scilintr.git#subdirectory=tex/scitexlintr"
+pip install scitexlintr
 ```
-
-Once the project lands on PyPI: `pip install scitexlintr`.
 
 Verify with `scitexlintr --help`.
 
