@@ -11,17 +11,28 @@ Selection order, identical in both formats:
 
 1. ``unit`` set — derive the string from ``value``. ``unit="percent"`` turns
    the stored fraction ``0.978`` into ``97.8%`` at ``precision`` decimal
-   places (default 1).
+   places (default 1); ``unit="decimal"`` rounds ``7.47712`` to ``7.48`` at
+   precision 2. Rounding is half-up on the value's decimal form, so
+   ``0.9535`` at precision 1 is ``95.4%`` (binary-float formatting would give
+   ``95.3%``).
 2. a format-specific override — ``display`` (TeX, verbatim) or
-   ``display_html`` (HTML, verbatim).
+   ``display_html`` (HTML, verbatim). In HTML a ``display`` with no TeX
+   markup (no ``\\ $ { } ^ ~``) is used as-is, so a plain ``"0.3183"`` needs
+   no ``display_html``.
 3. neither — the natural form of the value.
+
+HTML wrappers may narrow the precision of a derived value per span with
+``data-precision="0"`` (a slide can show ``95%`` where the report shows
+``95.4%``); it applies only to entries with a ``unit``.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import ROUND_HALF_UP, Decimal
 
-SUPPORTED_UNITS = ("percent",)
+SUPPORTED_UNITS = ("percent", "decimal")
+_TEX_MARKUP = set("\\${}^~")
 
 
 @dataclass(frozen=True)
@@ -49,7 +60,13 @@ def derive_unit(value: object, unit: str, precision: object, *, percent_sign: st
         raise ValueError(f"unit={unit!r} requires a numeric fraction value, got {value!r}")
     if isinstance(precision, bool) or not isinstance(precision, int) or precision < 0:
         raise ValueError(f"precision must be a non-negative int, got {precision!r}")
-    return f"{value * 100:.{precision}f}" + percent_sign
+    d = Decimal(repr(value)) if isinstance(value, float) else Decimal(value)
+    if unit == "percent":
+        d = d * 100
+    text = str(d.quantize(Decimal(1).scaleb(-precision), rounding=ROUND_HALF_UP))
+    if text in ("-0", "-0." + "0" * precision):
+        text = text[1:]
+    return text + (percent_sign if unit == "percent" else "")
 
 
 def natural(value: object) -> str:
@@ -60,16 +77,34 @@ def natural(value: object) -> str:
     return str(value)
 
 
-def expected_html(entry) -> Expected:
+def parse_precision(raw: str | None):
+    """A span's ``data-precision`` attribute as an int, or an error string."""
+    if raw is None:
+        return None
+    raw = raw.strip()
+    if not raw.isdigit():
+        return f"data-precision={raw!r} must be a non-negative integer"
+    return int(raw)
+
+
+def expected_html(entry, precision_override: int | None = None) -> Expected:
     """Expected rendered text of an HTML wrapper for manifest ``entry``."""
+    if precision_override is not None and entry.unit is None:
+        return Expected(
+            text=None, exact=True,
+            problem="data-precision applies only to entries with a unit (percent or decimal)",
+        )
     if entry.unit is not None:
+        precision = entry.precision if precision_override is None else precision_override
         try:
-            text = derive_unit(entry.value, entry.unit, entry.precision, percent_sign="%")
+            text = derive_unit(entry.value, entry.unit, precision, percent_sign="%")
         except ValueError as exc:
             return Expected(text=None, exact=True, problem=str(exc))
         return Expected(text=text, exact=True)
     if entry.display_html is not None:
         return Expected(text=str(entry.display_html), exact=True)
+    if entry.display is not None and not (_TEX_MARKUP & set(str(entry.display))):
+        return Expected(text=str(entry.display), exact=True)
     if entry.display is not None:
         return Expected(
             text=None,
@@ -80,3 +115,20 @@ def expected_html(entry) -> Expected:
             ),
         )
     return Expected(text=natural(entry.value), exact=isinstance(entry.value, str))
+
+
+def derived_forms(manifest, fmt: str):
+    """``(entry, number_text, suffix)`` for every entry whose display is
+    derived from a ``unit`` — the rendered forms a raw literal can take.
+    ``suffix`` is the percent sign as written in ``fmt`` (``\\%`` in TeX)."""
+    out = []
+    sign = "%" if fmt == "html" else "\\%"
+    for entry in manifest.numbers:
+        if entry.unit is None or entry.value is None:
+            continue
+        try:
+            text = derive_unit(entry.value, entry.unit, entry.precision, percent_sign="")
+        except ValueError:
+            continue
+        out.append((entry, text, sign if entry.unit == "percent" else ""))
+    return out

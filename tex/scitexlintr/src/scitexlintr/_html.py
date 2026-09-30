@@ -22,7 +22,15 @@ Non-prose regions: ``<head>``, ``<script>``, ``<style>``, ``<code>``,
 (``data-sci-val`` / ``data-sci-text``, checked by snapshot-mismatch
 instead); ``data-sci-live`` readouts that script rewrites at runtime; and
 everything inside a registered ``data-sci-fig`` figure except its
-``<figcaption>`` (the media is fingerprinted; the caption is prose).
+``<figcaption>`` (the media is fingerprinted; the caption is prose); the
+rows of a registered ``data-sci-table`` (its ``<caption>`` stays prose); and
+``<time>`` elements (dates in bylines and citations are not claims).
+
+The scanner also records the exact source text of each fingerprinted
+region — figure media between ``<!-- sci-media -->`` markers, a data
+block's payload, a registered table's rows between ``<!-- sci-rows -->``
+markers — so the rules can recompute ``data-content-sha256`` and catch a
+hand edit to inlined content.
 
 Stdlib ``html.parser`` only — no runtime dependencies.
 """
@@ -39,7 +47,7 @@ from scitexlintr._parser import line_col_lookup
 
 NONPROSE_TAGS = frozenset({
     "head", "script", "style", "code", "pre", "kbd", "samp", "math",
-    "template", "textarea", "noscript", "title",
+    "template", "textarea", "noscript", "title", "time",
 })
 VOID_TAGS = frozenset({
     "area", "base", "br", "col", "embed", "hr", "img", "input", "link",
@@ -52,6 +60,7 @@ MEDIA_TAGS = frozenset({"img", "object", "embed"})
 class Wrapper:
     kind: str                 # "val" | "text"
     key: str                  # manifest id as written in the attribute
+    precision: str | None     # data-precision attribute, if any
     start: int                # offset of the opening ``<span``
     inner_start: int          # offset just after the opening tag
     inner_end: int            # offset of the closing ``</span``
@@ -67,6 +76,17 @@ class FigureInfo:
     interactive: bool         # data-sci-interactive
     diagram: bool             # data-sci-diagram
     data_ids: tuple[str, ...]
+    content_sha256: str | None = None   # data-content-sha256
+    media: str | None = None            # source text between sci-media markers
+
+
+@dataclass(frozen=True)
+class TableInfo:
+    start: int
+    data_id: str
+    sha256: str | None
+    content_sha256: str | None
+    rows: str | None          # source text between sci-rows markers
 
 
 @dataclass(frozen=True)
@@ -82,6 +102,16 @@ class DataBlock:
     start: int
     data_id: str
     sha256: str | None
+    content_sha256: str | None = None
+    payload: str = ""
+
+
+@dataclass(frozen=True)
+class ScriptInfo:
+    start: int
+    body_start: int
+    text: str
+    runtime: bool             # id="sci-report-runtime"
 
 
 @dataclass(frozen=True)
@@ -105,6 +135,8 @@ class HtmlDoc:
     media: tuple[MediaRef, ...] = ()
     data_blocks: tuple[DataBlock, ...] = ()
     comments: tuple[Comment, ...] = ()
+    tables: tuple[TableInfo, ...] = ()
+    scripts: tuple[ScriptInfo, ...] = ()
     fmt: str = "html"
     macro_calls: tuple = ()
 
@@ -153,6 +185,8 @@ class _Scanner(HTMLParser):
         self.media: list[MediaRef] = []
         self.data_blocks: list[DataBlock] = []
         self.comments: list[Comment] = []
+        self.tables: list[TableInfo] = []
+        self.scripts: list[ScriptInfo] = []
 
     # -- position helpers -------------------------------------------------
 
@@ -193,9 +227,6 @@ class _Scanner(HTMLParser):
             self.media.append(MediaRef(start, tag, src, registered))
 
         if tag == "script" and attrs.get("data-sci-data"):
-            self.data_blocks.append(
-                DataBlock(start, attrs["data-sci-data"] or "", attrs.get("data-sha256"))
-            )
             fig = self._ancestor(lambda e: e.tag == "figure")
             if fig is not None:
                 fig.data_ids.append(attrs["data-sci-data"] or "")
@@ -209,9 +240,15 @@ class _Scanner(HTMLParser):
             nonprose = True
         if tag == "figure" and attrs.get("data-sci-fig"):
             nonprose = True
+        if tag == "table" and attrs.get("data-sci-table"):
+            nonprose = True
         if tag == "figcaption":
             fig = self._ancestor(lambda e: e.tag == "figure")
             if fig is not None and fig.attrs.get("data-sci-fig") and not self._blocked_above(fig):
+                nonprose = False
+        if tag == "caption":
+            tab = self._ancestor(lambda e: e.tag == "table")
+            if tab is not None and tab.attrs.get("data-sci-table") and not self._blocked_above(tab):
                 nonprose = False
         self.stack.append(_Elem(tag, attrs, start, open_end, nonprose))
 
@@ -246,7 +283,7 @@ class _Scanner(HTMLParser):
             has_markup = "<" in inner
             text = html.unescape(re.sub(r"<!--.*?-->|<[^>]*>", "", inner, flags=re.S))
             self.wrappers.append(
-                Wrapper(kind, key, el.start, el.open_end, close_start,
+                Wrapper(kind, key, attrs.get("data-precision"), el.start, el.open_end, close_start,
                         " ".join(text.split()), has_markup)
             )
         if el.tag == "figure":
@@ -258,8 +295,47 @@ class _Scanner(HTMLParser):
                     interactive="data-sci-interactive" in attrs,
                     diagram="data-sci-diagram" in attrs,
                     data_ids=tuple(el.data_ids),
+                    content_sha256=attrs.get("data-content-sha256"),
+                    media=self._between_markers("sci-media", el.open_end, close_start),
                 )
             )
+        if el.tag == "table" and attrs.get("data-sci-table"):
+            self.tables.append(
+                TableInfo(
+                    start=el.start,
+                    data_id=attrs.get("data-sci-table") or "",
+                    sha256=attrs.get("data-sha256"),
+                    content_sha256=attrs.get("data-content-sha256"),
+                    rows=self._between_markers("sci-rows", el.open_end, close_start),
+                )
+            )
+        if el.tag == "script":
+            body = self.source[el.open_end:close_start]
+            if attrs.get("data-sci-data"):
+                self.data_blocks.append(
+                    DataBlock(el.start, attrs["data-sci-data"] or "", attrs.get("data-sha256"),
+                              attrs.get("data-content-sha256"), body)
+                )
+            elif "src" not in attrs and (attrs.get("type") or "").lower() in ("", "text/javascript", "module", "application/javascript"):
+                self.scripts.append(
+                    ScriptInfo(el.start, el.open_end, body, attrs.get("id") == "sci-report-runtime")
+                )
+
+    def _between_markers(self, name: str, lo: int, hi: int) -> str | None:
+        """Source text between ``<!-- name -->`` and ``<!-- /name -->`` inside [lo, hi)."""
+        opening = closing = None
+        for c in self.comments:
+            if c.start < lo or c.end > hi:
+                continue
+            label = c.text.strip()
+            if label == name and opening is None:
+                opening = c
+            elif label == "/" + name and opening is not None:
+                closing = c
+                break
+        if opening is None or closing is None:
+            return None
+        return self.source[opening.end:closing.start]
 
     # -- text -------------------------------------------------------------
 
@@ -328,4 +404,6 @@ def prepare_html(source: str, filename: str) -> HtmlDoc:
         media=tuple(scanner.media),
         data_blocks=tuple(scanner.data_blocks),
         comments=tuple(scanner.comments),
+        tables=tuple(scanner.tables),
+        scripts=tuple(scanner.scripts),
     )

@@ -18,6 +18,7 @@ import re
 
 from scitexlintr._doc import TexDoc
 from scitexlintr._finding import Finding
+from scitexlintr._display import derived_forms
 from scitexlintr._manifest import Manifest, values_equal_as_snapshot
 from scitexlintr._rules._base import Rule
 from scitexlintr._rules.handwritten_numeric_claim import HANDWRITTEN_PATTERN
@@ -73,6 +74,7 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
             doc.stripped, doc.body_start, doc.body_end
         )
     }
+    derived = {text for _, text, _ in derived_forms(manifest, getattr(doc, "fmt", "tex"))} if manifest else set()
     for m in _NUMBER_RE.finditer(doc.stripped, doc.body_start, doc.body_end):
         offset = m.start()
         if offset in seen:
@@ -91,6 +93,10 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
         if manifest is not None and (
             _matches_manifest(manifest, num) or _matches_manifest(manifest, signed)
         ):
+            continue
+
+        # Rendered form of a unit-derived value -> raw-generated-value.
+        if num in derived:
             continue
 
         # Threshold context -> magic-tex-threshold / unwrapped-threshold.

@@ -153,10 +153,18 @@ the display contract:
 | Manifest entry | Rendered text must be |
 |---|---|
 | `"unit": "percent", "precision": 1`, value `0.9653` | `96.5%` exactly |
+| `"unit": "decimal", "precision": 2`, value `7.47712` | `7.48` exactly |
 | `"display_html": "2.5×"` | `2.5×` exactly |
-| only a TeX `"display"` override | error — add `display_html` |
+| a plain-text `"display"` such as `"0.3183"` | that text exactly |
+| a TeX `"display"` (contains `\ $ { } ^ ~`) and no `display_html` | error — add `display_html` |
 | plain number `15122` | any equal spelling (`15122`, `15,122`) |
 | plain string | the string exactly |
+
+Derived values round half-up on the value's decimal form (`0.9535` at
+precision 1 is `95.4%`). A span may narrow the precision of a derived value
+with `data-precision="0"` (a slide showing `95%` where the report shows
+`95.4%`). The rendered form of a derived value typed as bare text (`95.4%`
+in prose) is a `raw-generated-value`, in TeX (`95.4\%`) as in HTML.
 
 `--write` rewrites stale rendered text (HTML-escaped). A wrapper whose
 content contains markup is reported but not rewritten.
@@ -180,7 +188,22 @@ Every `<figure>` declares what it is:
 ```
 
 `data-sha256` must equal the manifest's `sha256` for that figure (a stale
-inlined copy is drift). Interactive data comes from a new optional manifest
+inlined copy is drift). Inlined content carries a second hash,
+`data-content-sha256`: the sha256 of the text between the
+`<!-- sci-media -->` / `<!-- /sci-media -->` markers of a figure, or of a
+data block's payload. The linter recomputes it, so a hand edit to inlined
+media or data fails even without access to the source file. (A figure
+without the markers — hand-inlined — is checked by `data-sha256` alone.)
+
+Large tables generated from a registered file use the same pair:
+
+```html
+<table class="sci-table" data-sci-table="per_seed" data-sha256="…" data-content-sha256="…">
+  <caption>…</caption>                       <!-- prose -->
+  <thead>…</thead>
+  <tbody><!-- sci-rows -->…<!-- /sci-rows --></tbody>   <!-- generated; not prose -->
+</table>
+``` Interactive data comes from a new optional manifest
 key, `data[*]` (`{"id", "path", "sha256"}`). An `<img>` / `<object>` /
 `<embed>` outside a registered figure must reference a path in
 `figures[*]`.
@@ -189,9 +212,9 @@ key, `data[*]` (`{"id", "path", "sha256"}`). An `<img>` / `<object>` /
 
 Prose is text content inside `<body>`, excluding `<head>`, `<script>`,
 `<style>`, `<code>`, `<pre>`, `<kbd>`, `<samp>`, `<math>`, `<template>`,
-`<textarea>`, `<noscript>`, attribute values, comments, wrapper content,
-`data-sci-live` readouts, and registered figure media (the figcaption stays
-prose). Character references are decoded in place, so `p &lt; 0.05` and
+`<textarea>`, `<noscript>`, `<time>`, attribute values, comments, wrapper
+content, `data-sci-live` readouts, registered figure media (the figcaption
+stays prose), and registered table rows (the caption stays prose). Character references are decoded in place, so `p &lt; 0.05` and
 `p ≤ 0.05` are thresholds, and `&#8211;` contributes no digits.
 
 ### Waivers
@@ -229,6 +252,9 @@ scitexlintr report.tex --manifest=.manifest.json --no-waivers
 
 # Restrict to specific rules
 scitexlintr report.tex --rules=snapshot-mismatch,raw-generated-value
+
+# Print the version (the HTML frontend needs >= 0.2.0)
+scitexlintr --version
 
 # HTML reports: same flags; --write rewrites stale rendered values
 scitexlintr report.html --manifest=.manifest.json --write
@@ -272,10 +298,12 @@ new_source, n_applied = apply_fixes(source_string, findings)
 | Rule | Severity | What it catches |
 |---|---|---|
 | `unknown-value-id` | error | `<span data-sci-val="n_smaples">` naming no manifest id. (TeX needs no such rule: an undefined macro stops compilation.) |
-| `unfingerprinted-data` | error | A `data-sci-data` block whose id is not in `manifest.data[*]` or whose `data-sha256` disagrees, or a `data-sci-interactive` figure with no registered data block. |
+| `unfingerprinted-data` | error | A `data-sci-data` block or `data-sci-table` whose id is not in `manifest.data[*]`, whose `data-sha256` disagrees, or whose content no longer matches its `data-content-sha256`; or a `data-sci-interactive` figure with no registered data block. |
+| `script-data-literal` | warning | An array of six or more numbers typed into a report script (outside the shared `sci-report-runtime` block) — interactive data belongs in a registered block. |
 
 `bare-generated-macro` is TeX-only. In HTML, `unfingerprinted-figure` also
-flags undeclared `<figure>` elements and stale `data-sha256` attributes.
+flags undeclared `<figure>` elements, stale `data-sha256` attributes, and
+inlined media edited after sync.
 
 ### Manifest-free rules (always on)
 
@@ -432,7 +460,7 @@ tex/scitexlintr/
 cd tex/scitexlintr
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
-.venv/bin/pytest             # 167 tests
+.venv/bin/pytest             # 181 tests
 .venv/bin/scitexlintr tests/data/report.tex --manifest=tests/data/manifest.json
 ```
 

@@ -32,7 +32,7 @@ scilintr/
 │   └── ...
 ├── py/scilintr/                <- Python package (v0.1.1, 27 rules, 139 tests)
 │   └── ...
-└── tex/scitexlintr/            <- LaTeX + HTML report linter (v0.2.0, 12 rules, 167 tests)
+└── tex/scitexlintr/            <- LaTeX + HTML report linter (v0.2.0, 13 rules, 181 tests)
     └── ...
 ```
 
@@ -178,14 +178,15 @@ rule runs unchanged on both formats.
   `unchecked-merge`, `magic-threshold`, `label-in-blind-stage`,
   `synthetic-data-generation`, …). 139 pytest tests passing. `python -m
   build` produces clean wheel + sdist; `twine check` PASSED.
-- **scitexlintr (v0.2.0)** — 12 rules, run on both `.tex` and `.html`
+- **scitexlintr (v0.2.0)** — 13 rules, run on both `.tex` and `.html`
   report sources, covering manifest-anchored checks
   (`snapshot-mismatch` auto-fixable, `raw-generated-value`,
   `bare-generated-macro`, `unwrapped-threshold`, `unfingerprinted-figure`,
   `unsourced-numeric-token`, `overloaded-term-no-warning`,
   `forbidden-alias`) and manifest-free checks
-  (`handwritten-numeric-claim`, `magic-tex-threshold`), plus two
-  HTML-only checks (`unknown-value-id`, `unfingerprinted-data`). 167
+  (`handwritten-numeric-claim`, `magic-tex-threshold`), plus three
+  HTML-only checks (`unknown-value-id`, `unfingerprinted-data`,
+  `script-data-literal`). 181
   pytest tests passing, including an HTML port of the TeX corpus held to
   the same expectations. Hand-rolled TeX scanner and stdlib HTML
   frontend; no external runtime deps.

@@ -9,10 +9,18 @@ and every ``<figure data-sci-interactive>`` must contain at least one such
 block (a figure that draws from hand-typed arrays in script is exactly the
 drift this rule exists to catch).
 
+Each block also carries ``data-content-sha256``, the sha256 of the payload
+exactly as inlined, so a hand edit to the embedded data is caught without
+access to the source file. The same pair of hashes guards registered tables
+(``<table data-sci-table="id">``), whose rows between ``<!-- sci-rows -->``
+markers are generated from a ``data[*]`` file.
+
 HTML only; TeX has no interactive figures.
 """
 
 from __future__ import annotations
+
+import hashlib
 
 from scitexlintr._finding import Finding
 from scitexlintr._manifest import Manifest
@@ -30,17 +38,29 @@ def _check(doc, manifest: Manifest | None) -> list[Finding]:
         line, col = doc.lookup(offset)
         findings.append(Finding(rule=CODE, line=line, col=col, message=message, severity="error"))
 
-    for block in doc.data_blocks:
-        entry = manifest.by_data_id.get(block.data_id)
+    def check(kind: str, start: int, data_id: str, sha: str | None, content_sha: str | None, content: str | None):
+        entry = manifest.by_data_id.get(data_id)
         if entry is None:
-            emit(block.start, f"data block id {block.data_id!r} not registered in manifest data[*]")
-        elif entry.sha256 and (block.sha256 or "").lower() != entry.sha256.lower():
-            got = (block.sha256 or "missing")[:12]
-            emit(
-                block.start,
-                f"data block {block.data_id!r} data-sha256 {got} disagrees with manifest "
-                f"sha256 {entry.sha256[:12]}… — re-sync the embedded data",
-            )
+            emit(start, f"{kind} id {data_id!r} not registered in manifest data[*]")
+            return
+        if entry.sha256 and (sha or "").lower() != entry.sha256.lower():
+            got = (sha or "missing")[:12]
+            emit(start, f"{kind} {data_id!r} data-sha256 {got} disagrees with manifest "
+                        f"sha256 {entry.sha256[:12]}… — re-sync it")
+            return
+        if content is None:
+            emit(start, f"{kind} {data_id!r} has no generated content markers; re-sync it")
+            return
+        actual = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        if not content_sha:
+            emit(start, f"{kind} {data_id!r} has no data-content-sha256; re-sync it")
+        elif content_sha.lower() != actual:
+            emit(start, f"{kind} {data_id!r} content was edited after sync (data-content-sha256 does not match); re-sync it")
+
+    for block in doc.data_blocks:
+        check("data block", block.start, block.data_id, block.sha256, block.content_sha256, block.payload)
+    for table in doc.tables:
+        check("table", table.start, table.data_id, table.sha256, table.content_sha256, table.rows)
 
     for fig in doc.figures:
         if fig.interactive and not fig.data_ids:

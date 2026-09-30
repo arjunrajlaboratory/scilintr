@@ -286,7 +286,8 @@ def test_stray_img_outside_registered_figure(hlint):
 def test_registered_data_block_passes_and_stale_one_fails(hlint):
     ok = (
         '<figure data-sci-interactive="ts">'
-        f'<script type="application/json" data-sci-data="series" data-sha256="{SHA_SERIES}">'
+        f'<script type="application/json" data-sci-data="series" data-sha256="{SHA_SERIES}" '
+        'data-content-sha256="fc08fb1a99d15a3459a5c2b84b50ba956ccf3e5569878beb187329de51a69ff8">'
         '{"x": [1, 2, 3]}</script></figure>'
     )
     assert hlint(ok) == []

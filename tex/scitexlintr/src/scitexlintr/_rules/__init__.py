@@ -8,6 +8,7 @@ from scitexlintr._rules.forbidden_alias import rule as forbidden_alias
 from scitexlintr._rules.handwritten_numeric_claim import rule as handwritten_numeric_claim
 from scitexlintr._rules.overloaded_term_no_warning import rule as overloaded_term_no_warning
 from scitexlintr._rules.raw_generated_value import rule as raw_generated_value
+from scitexlintr._rules.script_data_literal import rule as script_data_literal
 from scitexlintr._rules.snapshot_mismatch import rule as snapshot_mismatch
 from scitexlintr._rules.thresholds import magic_rule as magic_tex_threshold
 from scitexlintr._rules.thresholds import unwrapped_rule as unwrapped_threshold
@@ -24,6 +25,7 @@ ALL_RULES: list[Rule] = [
     unfingerprinted_figure,
     unfingerprinted_data,
     unknown_value_id,
+    script_data_literal,
     unsourced_numeric_token,
     overloaded_term_no_warning,
     forbidden_alias,

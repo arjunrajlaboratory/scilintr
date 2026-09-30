@@ -19,6 +19,19 @@
 - `unfingerprinted-figure` (HTML): every `<figure>` must declare
   `data-sci-fig` (checked against `figures[*]` and its sha256),
   `data-sci-interactive`, or `data-sci-diagram`.
+- Content hashes: inlined figure media and data payloads carry
+  `data-content-sha256`, recomputed by the linter, so hand edits to inlined
+  content fail the gate.
+- Registered tables (`<table data-sci-table="id">`): rows generated from a
+  `data[*]` file are fingerprinted and excluded from prose.
+- `script-data-literal` (HTML, warning): numeric arrays typed into report
+  scripts.
+- `unit: "decimal"` with `precision`; half-up rounding for derived values;
+  per-span `data-precision`; plain-text `display` accepted in HTML.
+- `raw-generated-value` also flags the rendered form of a unit-derived value
+  (`95.4%`, `95.4\%`).
+- `<time>` content is not prose.
+- `--version`; the CLI reports a missing input file instead of a traceback.
 - HTML port of the end-to-end corpus (`tests/data/report.html`).
 - CI workflow for this package (`.github/workflows/tex-check.yaml`).
 

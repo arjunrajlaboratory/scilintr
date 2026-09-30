@@ -66,7 +66,7 @@ def test_html_corpus_exercises_every_html_rule(html_corpus_source, corpus_manife
         "unfingerprinted-figure", "unsourced-numeric-token",
         "overloaded-term-no-warning", "forbidden-alias",
         "handwritten-numeric-claim", "magic-tex-threshold",
-        "unknown-value-id", "unfingerprinted-data",
+        "unknown-value-id", "unfingerprinted-data", "script-data-literal",
     }
     assert not expected - fired, f"HTML corpus does not exercise: {sorted(expected - fired)}"
 

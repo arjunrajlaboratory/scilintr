@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import re
 
+from scitexlintr._display import derived_forms
 from scitexlintr._doc import TexDoc
 from scitexlintr._finding import Finding
 from scitexlintr._manifest import Manifest, values_equal_as_snapshot
@@ -63,7 +64,34 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
                     severity="error",
                 )
             )
+
+    # Rendered forms of unit-derived values: 0.9535 with unit percent is
+    # written "95.4%", so that literal is as raw as "0.9535" would be.
+    for entry, number, suffix in derived_forms(manifest, getattr(doc, "fmt", "tex")):
+        for m in _NUMERIC_TOKEN_RE.finditer(doc.stripped, doc.body_start, doc.body_end):
+            if m.group(0) != number or not doc.in_prose(m.start()):
+                continue
+            if suffix and not doc.stripped.startswith(suffix, _skip_spaces(doc.stripped, m.end())):
+                continue
+            if m.start() in seen_offsets:
+                continue
+            seen_offsets.add(m.start())
+            label = number + suffix
+            line, col = doc.lookup(m.start())
+            findings.append(
+                Finding(
+                    rule=CODE, line=line, col=col, severity="error",
+                    message=(f"raw value {label!r} is the rendered form of manifest id={entry.id}; "
+                             f"wrap with {doc.wrap_hint(entry, label)}"),
+                )
+            )
     return findings
+
+
+def _skip_spaces(text: str, i: int) -> int:
+    while i < len(text) and text[i] in " \t":
+        i += 1
+    return i
 
 
 # A maximal numeric token: optional sign, an integer part (optionally

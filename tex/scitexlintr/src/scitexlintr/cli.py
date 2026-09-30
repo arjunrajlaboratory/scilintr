@@ -6,6 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from scitexlintr import __version__
 from scitexlintr._engine import apply_fixes, format_for_path, lint_file
 from scitexlintr._manifest import load_manifest
 
@@ -15,6 +16,7 @@ def main(argv: list[str] | None = None) -> int:
         prog="scitexlintr",
         description="Lint LaTeX and HTML reports for scientific drift",
     )
+    parser.add_argument("--version", action="version", version=f"scitexlintr {__version__}")
     parser.add_argument("paths", nargs="+", help=".tex or .html report files to lint")
     parser.add_argument(
         "--manifest",
@@ -51,6 +53,9 @@ def main(argv: list[str] | None = None) -> int:
     by_rule: dict[str, int] = {}
     for raw in args.paths:
         p = Path(raw)
+        if not p.is_file():
+            print(f"{p}: not found", file=sys.stderr)
+            return 2
         findings = lint_file(
             p,
             manifest_path=args.manifest,

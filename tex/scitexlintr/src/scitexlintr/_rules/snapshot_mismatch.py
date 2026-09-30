@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import html
 
-from scitexlintr._display import expected_html
+from scitexlintr._display import expected_html, parse_precision
 from scitexlintr._doc import TexDoc, extract_macro_ref
 from scitexlintr._finding import Finding, Fix
 from scitexlintr._manifest import Manifest, values_equal_as_snapshot
@@ -76,8 +76,13 @@ def _check_html(doc, manifest: Manifest) -> list[Finding]:
         entry = manifest.resolve_number(w.key)
         if entry is None or entry.value is None:
             continue  # unknown ids belong to unknown-value-id
-        expected = expected_html(entry)
         line, col = doc.lookup(w.inner_start)
+        precision = parse_precision(w.precision)
+        if isinstance(precision, str):
+            findings.append(Finding(rule=CODE, line=line, col=col, severity="error",
+                                    message=f"id={entry.id}: {precision}"))
+            continue
+        expected = expected_html(entry, precision)
         if expected.problem is not None:
             findings.append(
                 Finding(
