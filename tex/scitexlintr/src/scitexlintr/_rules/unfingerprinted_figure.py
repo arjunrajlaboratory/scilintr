@@ -152,10 +152,13 @@ def _check_html(doc, manifest: Manifest) -> list[Finding]:
     for m in doc.media:
         if m.in_registered_figure:
             continue
-        if m.src and not m.src.startswith("data:") and _path_matches_manifest(m.src, manifest):
+        if m.tag == "canvas" and m.in_interactive_figure:
+            continue  # a custom interactive kind draws here from registered data
+        if m.tag in ("img", "image") and m.src and not m.src.startswith("data:") and _path_matches_manifest(m.src, manifest):
             continue
         shown = m.src if len(m.src) <= 60 else m.src[:57] + "..."
-        emit(m.start, f"<{m.tag}> {shown!r} is outside a registered data-sci-fig figure and not in manifest figures[*]")
+        emit(m.start, f"<{m.tag}> {shown!r} is outside a registered figure's sci-media region "
+                      "and not in manifest figures[*]")
     return findings
 
 

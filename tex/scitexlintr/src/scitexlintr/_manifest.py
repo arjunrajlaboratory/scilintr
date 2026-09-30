@@ -257,7 +257,7 @@ def id_to_macro_name(manifest_id: str) -> str:
     for segment in local.split("_"):
         if not segment:
             continue
-        if segment.isdigit():
+        if segment.isascii() and segment.isdigit():
             out_segments.append("".join(_DIGIT_WORDS[d] for d in segment))
         elif segment.isalpha() and len(segment) <= 3:
             out_segments.append(segment.upper())
@@ -269,7 +269,7 @@ def id_to_macro_name(manifest_id: str) -> str:
             # \newcommand and the macro lookup below.
             chars: list[str] = []
             for j, ch in enumerate(segment):
-                if ch.isdigit():
+                if ch in _DIGIT_WORDS:
                     chars.append(_DIGIT_WORDS[ch])
                 elif j == 0:
                     chars.append(ch.upper())

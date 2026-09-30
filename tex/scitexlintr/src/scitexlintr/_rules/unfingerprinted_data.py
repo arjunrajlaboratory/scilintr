@@ -58,7 +58,17 @@ def _check(doc, manifest: Manifest | None) -> list[Finding]:
             emit(start, f"{kind} {data_id!r} content was edited after sync (data-content-sha256 does not match); re-sync it")
 
     for block in doc.data_blocks:
+        if block.type != "application/json":
+            # The runtime reads only script[type="application/json"][data-sci-data];
+            # any other type renders a blank figure (and a missing type runs the
+            # payload as JavaScript).
+            emit(block.start, f"data block {block.data_id!r} must be type=\"application/json\" "
+                              f"(got {block.type or 'no type'}); the runtime reads only JSON blocks")
+            continue
         check("data block", block.start, block.data_id, block.sha256, block.content_sha256, block.payload)
+    for other in getattr(doc, "unregistered_data", ()):
+        emit(other.start, f"<script type=\"{other.type}\"> holds data outside a registered data-sci-data "
+                          "block; register it in manifest data[*] or remove it")
     for table in doc.tables:
         check("table", table.start, table.data_id, table.sha256, table.content_sha256, table.rows)
 

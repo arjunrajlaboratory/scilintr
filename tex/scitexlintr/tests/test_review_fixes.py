@@ -43,8 +43,8 @@ def test_registered_figure_without_media_markers_is_flagged():
     m = parse_manifest({"figures": [{"id": "x", "path": "x.png", "sha256": SRC}]})
     body = f'<figure data-sci-fig="x" data-sha256="{SRC}"><img alt="" src="data:image/png;base64,AA=="></figure>'
     found = lint_html(page(body), manifest=m)
-    assert rules(found) == ["unfingerprinted-figure"]
-    assert "sci-media" in found[0].message
+    assert set(rules(found)) == {"unfingerprinted-figure"}
+    assert any("no <!-- sci-media --> markers" in f.message for f in found)
 
 
 def test_low_precision_derived_values_do_not_claim_every_integer():

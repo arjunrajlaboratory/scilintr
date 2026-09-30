@@ -48,6 +48,15 @@
 - `script-data-literal` scans balanced brackets with strings and comments
   removed, exempts only the first runtime block, and honours
   `// ANALYSIS_OK[…]` waivers inside scripts.
+- The prose exemption and "registered media" status cover exactly the
+  hashed region between `sci-media` / `sci-rows` markers, not the whole
+  `<figure>` / `<table>`.
+- Data blocks must be `type="application/json"`, matching the runtime; other
+  non-JavaScript scripts with content are unregistered data.
+- Every media-embedding element is gated, not only `<img>` / `<object>` /
+  `<embed>`.
+- `data-precision` and the id→macro transform accept ASCII digits only
+  (a `²` no longer crashes the run).
 - HTML port of the end-to-end corpus (`tests/data/report.html`).
 - CI workflow for this package (`.github/workflows/tex-check.yaml`).
 

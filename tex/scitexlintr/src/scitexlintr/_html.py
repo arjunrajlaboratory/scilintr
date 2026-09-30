@@ -53,7 +53,13 @@ VOID_TAGS = frozenset({
     "area", "base", "br", "col", "embed", "hr", "img", "input", "link",
     "meta", "param", "source", "track", "wbr",
 })
-MEDIA_TAGS = frozenset({"img", "object", "embed"})
+# Every element that embeds an image, media, or another document. Outside a
+# registered figure's media region, each one is an unregistered figure.
+EMBED_TAGS = frozenset({
+    "img", "image", "source", "video", "audio", "iframe", "object", "embed", "canvas",
+})
+_EMBED_SRC_ATTRS = ("src", "data", "href", "xlink:href", "srcset", "poster")
+JS_TYPES = ("", "text/javascript", "module", "application/javascript")
 
 
 @dataclass(frozen=True)
@@ -94,7 +100,8 @@ class MediaRef:
     start: int
     tag: str
     src: str
-    in_registered_figure: bool
+    in_registered_figure: bool   # inside a registered figure's sci-media region
+    in_interactive_figure: bool = False
 
 
 @dataclass(frozen=True)
@@ -104,6 +111,15 @@ class DataBlock:
     sha256: str | None
     content_sha256: str | None = None
     payload: str = ""
+    type: str = ""
+
+
+@dataclass(frozen=True)
+class UnregisteredData:
+    """A non-JavaScript ``<script>`` (JSON, text, …) that is not a registered
+    data block: data a custom figure could read without any fingerprint."""
+    start: int
+    type: str
 
 
 @dataclass(frozen=True)
@@ -137,6 +153,7 @@ class HtmlDoc:
     comments: tuple[Comment, ...] = ()
     tables: tuple[TableInfo, ...] = ()
     scripts: tuple[ScriptInfo, ...] = ()
+    unregistered_data: tuple[UnregisteredData, ...] = ()
     fmt: str = "html"
     macro_calls: tuple = ()
 
@@ -187,6 +204,12 @@ class _Scanner(HTMLParser):
         self.comments: list[Comment] = []
         self.tables: list[TableInfo] = []
         self.scripts: list[ScriptInfo] = []
+        self.unregistered_data: list[UnregisteredData] = []
+        # The fingerprinted region currently open ("sci-media" / "sci-rows"),
+        # entered and left at the marker comments. The prose exemption and
+        # "registered media" status cover exactly this region — the same span
+        # data-content-sha256 hashes — never the whole element.
+        self.region: str | None = None
 
     # -- position helpers -------------------------------------------------
 
@@ -195,7 +218,7 @@ class _Scanner(HTMLParser):
         return self._line_starts[line - 1] + col
 
     def _in_nonprose(self) -> bool:
-        return bool(self.stack) and self.stack[-1].nonprose
+        return self.region is not None or (bool(self.stack) and self.stack[-1].nonprose)
 
     def _ancestor(self, predicate) -> _Elem | None:
         for el in reversed(self.stack):
@@ -220,11 +243,11 @@ class _Scanner(HTMLParser):
         if tag == "body" and self.body_start is None:
             self.body_start = open_end
 
-        if tag in MEDIA_TAGS:
-            src = attrs.get("src") or attrs.get("data") or ""
+        if tag in EMBED_TAGS:
+            src = next((attrs[k] or "" for k in _EMBED_SRC_ATTRS if attrs.get(k)), "")
             fig = self._ancestor(lambda e: e.tag == "figure")
-            registered = fig is not None and bool(fig.attrs.get("data-sci-fig"))
-            self.media.append(MediaRef(start, tag, src, registered))
+            interactive = fig is not None and "data-sci-interactive" in fig.attrs
+            self.media.append(MediaRef(start, tag, src, self.region == "sci-media", interactive))
 
         if tag == "script" and attrs.get("data-sci-data"):
             fig = self._ancestor(lambda e: e.tag == "figure")
@@ -238,24 +261,7 @@ class _Scanner(HTMLParser):
         nonprose = parent_nonprose or tag in NONPROSE_TAGS
         if "data-sci-val" in attrs or "data-sci-text" in attrs or "data-sci-live" in attrs:
             nonprose = True
-        if tag == "figure" and attrs.get("data-sci-fig"):
-            nonprose = True
-        if tag == "table" and attrs.get("data-sci-table"):
-            nonprose = True
-        if tag == "figcaption":
-            fig = self._ancestor(lambda e: e.tag == "figure")
-            if fig is not None and fig.attrs.get("data-sci-fig") and not self._blocked_above(fig):
-                nonprose = False
-        if tag == "caption":
-            tab = self._ancestor(lambda e: e.tag == "table")
-            if tab is not None and tab.attrs.get("data-sci-table") and not self._blocked_above(tab):
-                nonprose = False
         self.stack.append(_Elem(tag, attrs, start, open_end, nonprose))
-
-    def _blocked_above(self, fig: _Elem) -> bool:
-        """True if something *outside* ``fig`` already makes this region non-prose."""
-        idx = self.stack.index(fig)
-        return idx > 0 and self.stack[idx - 1].nonprose
 
     def handle_endtag(self, tag):
         if tag in VOID_TAGS:
@@ -311,12 +317,16 @@ class _Scanner(HTMLParser):
             )
         if el.tag == "script":
             body = self.source[el.open_end:close_start]
+            script_type = (attrs.get("type") or "").strip().lower()
             if attrs.get("data-sci-data"):
                 self.data_blocks.append(
                     DataBlock(el.start, attrs["data-sci-data"] or "", attrs.get("data-sha256"),
-                              attrs.get("data-content-sha256"), body)
+                              attrs.get("data-content-sha256"), body, script_type)
                 )
-            elif "src" not in attrs and (attrs.get("type") or "").lower() in ("", "text/javascript", "module", "application/javascript"):
+            elif script_type not in JS_TYPES:
+                if body.strip():
+                    self.unregistered_data.append(UnregisteredData(el.start, script_type))
+            elif "src" not in attrs:
                 # Only the first runtime block is the shared runtime; a second
                 # one is report code wearing its id.
                 is_runtime = attrs.get("id") == "sci-report-runtime" and not any(s.runtime for s in self.scripts)
@@ -377,6 +387,13 @@ class _Scanner(HTMLParser):
         start = self._offset()
         end = start + len(data) + len("<!---->")
         self.comments.append(Comment(start, end, data))
+        label = data.strip()
+        if label == "sci-media" and self._ancestor(lambda e: e.tag == "figure" and bool(e.attrs.get("data-sci-fig"))):
+            self.region = "sci-media"
+        elif label == "sci-rows" and self._ancestor(lambda e: e.tag == "table" and bool(e.attrs.get("data-sci-table"))):
+            self.region = "sci-rows"
+        elif label in ("/sci-media", "/sci-rows") and self.region == label[1:]:
+            self.region = None
 
     def unknown_decl(self, data):  # <![CDATA[...]]> etc. — never prose
         return
@@ -407,4 +424,5 @@ def prepare_html(source: str, filename: str) -> HtmlDoc:
         comments=tuple(scanner.comments),
         tables=tuple(scanner.tables),
         scripts=tuple(scanner.scripts),
+        unregistered_data=tuple(scanner.unregistered_data),
     )

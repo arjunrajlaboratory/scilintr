@@ -104,7 +104,8 @@ def parse_precision(raw: str | None):
     if raw is None:
         return None
     raw = raw.strip()
-    if not raw.isdigit():
+    # ASCII digits only: str.isdigit() also accepts "²", which int() rejects.
+    if not re.fullmatch(r"[0-9]+", raw):
         return f"data-precision={raw!r} must be a non-negative integer"
     return int(raw)
 

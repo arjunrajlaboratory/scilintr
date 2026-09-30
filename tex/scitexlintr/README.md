@@ -224,8 +224,11 @@ key, `data[*]` (`{"id", "path", "sha256"}`). An `<img>` / `<object>` /
 Prose is text content inside `<body>`, excluding `<head>`, `<script>`,
 `<style>`, `<code>`, `<pre>`, `<kbd>`, `<samp>`, `<math>`, `<template>`,
 `<textarea>`, `<noscript>`, `<time>`, attribute values, comments, wrapper
-content, `data-sci-live` readouts, registered figure media (the figcaption
-stays prose), and registered table rows (the caption stays prose). Character references are decoded in place, so `p &lt; 0.05` and
+content, `data-sci-live` readouts, and the fingerprinted regions: the text
+between a registered figure's `sci-media` markers and between a registered
+table's `sci-rows` markers. The exemption is exactly the hashed span —
+anything else inside the `<figure>` or `<table>` (captions, notes, a
+hand-typed `<tfoot>`) is prose. Character references are decoded in place, so `p &lt; 0.05` and
 `p ≤ 0.05` are thresholds, and `&#8211;` contributes no digits.
 
 ### Waivers
@@ -310,12 +313,15 @@ new_source, n_applied = apply_fixes(source_string, findings)
 | Rule | Severity | What it catches |
 |---|---|---|
 | `unknown-value-id` | error | `<span data-sci-val="n_smaples">` naming no manifest id. (TeX needs no such rule: an undefined macro stops compilation.) |
-| `unfingerprinted-data` | error | A `data-sci-data` block or `data-sci-table` whose id is not in `manifest.data[*]`, whose `data-sha256` disagrees, or whose content no longer matches its `data-content-sha256`; or a `data-sci-interactive` figure with no registered data block. |
+| `unfingerprinted-data` | error | A `data-sci-data` block or `data-sci-table` whose id is not in `manifest.data[*]`, whose `data-sha256` disagrees, or whose content no longer matches its `data-content-sha256`; a data block that is not `type="application/json"` (the only type the runtime reads); any other non-JavaScript `<script>` holding content; or a `data-sci-interactive` figure with no registered data block. |
 | `script-data-literal` | warning | A bracketed literal with six or more numbers (flat arrays, point pairs, `{x, y}` objects; strings and comments ignored) typed into a report script other than the first `sci-report-runtime` block — interactive data belongs in a registered block. |
 
 `bare-generated-macro` is TeX-only. In HTML, `unfingerprinted-figure` also
-flags undeclared `<figure>` elements, stale `data-sha256` attributes, and
-inlined media edited after sync.
+flags undeclared `<figure>` elements, stale `data-sha256` attributes, inlined
+media edited after sync, and every media-embedding element (`<img>`, SVG
+`<image>`, `<source>`, `<video>`, `<audio>`, `<iframe>`, `<object>`,
+`<embed>`, `<canvas>`) outside a registered figure's `sci-media` region — a
+`<canvas>` may also sit inside an interactive figure.
 
 ### Manifest-free rules (always on)
 
