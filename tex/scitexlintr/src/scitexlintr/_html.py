@@ -20,11 +20,13 @@ Non-prose regions: ``<head>``, ``<script>``, ``<style>``, ``<code>``,
 ``<pre>``, ``<kbd>``, ``<samp>``, ``<math>``, ``<template>``,
 ``<textarea>``, ``<noscript>``; the content of value wrappers
 (``data-sci-val`` / ``data-sci-text``, checked by snapshot-mismatch
-instead); ``data-sci-live`` readouts that script rewrites at runtime; and
-everything inside a registered ``data-sci-fig`` figure except its
-``<figcaption>`` (the media is fingerprinted; the caption is prose); the
-rows of a registered ``data-sci-table`` (its ``<caption>`` stays prose); and
-``<time>`` elements (dates in bylines and citations are not claims).
+instead); ``data-sci-live`` readouts that script rewrites at runtime; ``<time>``
+elements (dates in bylines and citations are not claims); and the
+fingerprinted regions — the text between a registered figure's
+``<!-- sci-media -->`` markers and between a registered table's
+``<!-- sci-rows -->`` markers. The exemption is exactly the hashed span:
+captions, notes, and anything else inside the ``<figure>`` or ``<table>``
+are prose.
 
 The scanner also records the exact source text of each fingerprinted
 region — figure media between ``<!-- sci-media -->`` markers, a data

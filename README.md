@@ -32,7 +32,7 @@ scilintr/
 │   └── ...
 ├── py/scilintr/                <- Python package (v0.1.1, 27 rules, 139 tests)
 │   └── ...
-└── tex/scitexlintr/            <- LaTeX + HTML report linter (v0.2.0, 13 rules, 181 tests)
+└── tex/scitexlintr/            <- LaTeX + HTML report linter (v0.2.0, 13 rules, 214 tests)
     └── ...
 ```
 
@@ -106,7 +106,7 @@ findings = lint_paths(["path/to/dir/"])
 ### LaTeX and HTML reports (scitexlintr)
 
 ```bash
-pip install scitexlintr   # from PyPI
+pip install "scitexlintr>=0.2"   # from PyPI; the HTML frontend needs 0.2.0
 ```
 
 CLI:
@@ -186,7 +186,7 @@ rule runs unchanged on both formats.
   `forbidden-alias`) and manifest-free checks
   (`handwritten-numeric-claim`, `magic-tex-threshold`), plus three
   HTML-only checks (`unknown-value-id`, `unfingerprinted-data`,
-  `script-data-literal`). 181
+  `script-data-literal`). 214
   pytest tests passing, including an HTML port of the TeX corpus held to
   the same expectations. Hand-rolled TeX scanner and stdlib HTML
   frontend; no external runtime deps.

@@ -41,6 +41,12 @@ def main(argv: list[str] | None = None) -> int:
         help="auto-fix snapshot-mismatch findings in place (HTML: rewrites rendered values)",
     )
     parser.add_argument(
+        "--fail-on",
+        choices=("any", "error"),
+        default="any",
+        help="exit 1 on any remaining finding (default) or only on error-severity findings",
+    )
+    parser.add_argument(
         "--summary",
         action="store_true",
         help="print only a per-rule count summary",
@@ -50,6 +56,7 @@ def main(argv: list[str] | None = None) -> int:
     rules = [r.strip() for r in args.rules.split(",")] if args.rules else None
 
     total_findings = 0
+    failing = 0
     by_rule: dict[str, int] = {}
     for raw in args.paths:
         p = Path(raw)
@@ -81,13 +88,15 @@ def main(argv: list[str] | None = None) -> int:
             if not args.summary:
                 print(f"{f.filename}:{f.line}:{f.col}: [{f.rule}] {f.message}")
             total_findings += 1
+            if args.fail_on == "any" or f.severity == "error":
+                failing += 1
 
     if args.summary:
         for rule_code, count in sorted(by_rule.items(), key=lambda kv: -kv[1]):
             print(f"{count:>5}  {rule_code}")
         print(f"{total_findings:>5}  TOTAL")
 
-    return 1 if total_findings else 0
+    return 1 if failing else 0
 
 
 if __name__ == "__main__":

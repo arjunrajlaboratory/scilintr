@@ -1,4 +1,8 @@
-"""Detect ``% ANALYSIS_OK[category]: explanation`` waiver comments in TeX source.
+"""Detect ``ANALYSIS_OK[category]: explanation`` waivers in TeX and HTML sources.
+
+TeX: ``% ANALYSIS_OK[…]: …`` comments. HTML: ``<!-- ANALYSIS_OK[…]: … -->``
+comments, and inside ``<script>`` elements ``// ANALYSIS_OK[…]: …`` or
+``/* ANALYSIS_OK[…]: … */`` JavaScript comments.
 
 Mirror of scilintr's Python waiver pattern, adapted to TeX comment syntax:
 

@@ -1,4 +1,4 @@
-"""Display formatting — how a manifest value is rendered in a report.
+r"""Display formatting — how a manifest value is rendered in a report.
 
 This is the single definition of the ``unit`` / ``precision`` / ``display``
 contract. mycelium's ``render_report_values_tex`` applies the same rules

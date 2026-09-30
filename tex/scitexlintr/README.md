@@ -166,9 +166,10 @@ precision 1 is `95.4%`). A span may narrow the precision of a derived value
 with `data-precision="0"` (a slide showing `95%` where the report shows
 `95.4%`). The rendered form of a derived value typed as bare text (`95.4%`
 in prose) is a `raw-generated-value`, in TeX (`95.4\%`) as in HTML — for
-fractional percents only. A rounded decimal (`1.5`) or an integer percent
-(`95%`) is not evidence of one value (many literals round to it) and is left
-to `unsourced-numeric-token`. String values match on word boundaries: `WT`
+fractional percents only. A rounded decimal (`1.5`) is not evidence of one
+value (many literals round to it) and is left to `unsourced-numeric-token`.
+An integer percent (`95%`) is not checked at all: typographic percentages are
+skipped by `unsourced-numeric-token`, so wrap such values in spans. String values match on word boundaries: `WT`
 is not raw inside `WTF1`.
 
 A span's id must match a manifest id exactly, or be a namespace-free key
@@ -184,13 +185,13 @@ content contains markup is reported but not rewritten.
 Every `<figure>` declares what it is:
 
 ```html
-<figure data-sci-fig="volcano_de" data-sha256="b4e3…">   <!-- registered figure -->
-  <svg>…</svg>  or  <img src="data:image/png;base64,…">
-  <figcaption>…</figcaption>                               <!-- caption is prose -->
+<figure data-sci-fig="volcano_de" data-sha256="b4e3…" data-content-sha256="…">   <!-- registered figure -->
+  <div class="sci-media"><!-- sci-media --><svg>…</svg><!-- /sci-media --></div>    <!-- media: hashed, not prose -->
+  <figcaption>…</figcaption>                                                         <!-- caption is prose -->
 </figure>
 
 <figure data-sci-interactive="growth">                     <!-- slider / animation -->
-  <script type="application/json" data-sci-data="growth_series" data-sha256="9f9f…">…</script>
+  <script type="application/json" data-sci-data="growth_series" data-sha256="9f9f…" data-content-sha256="…">…</script>
   <output data-sci-live></output>                          <!-- runtime readout: not prose -->
 </figure>
 
@@ -214,10 +215,13 @@ Large tables generated from a registered file use the same pair:
   <thead>…</thead>
   <tbody><!-- sci-rows -->…<!-- /sci-rows --></tbody>   <!-- generated; not prose -->
 </table>
-``` Interactive data comes from a new optional manifest
-key, `data[*]` (`{"id", "path", "sha256"}`). An `<img>` / `<object>` /
-`<embed>` outside a registered figure must reference a path in
-`figures[*]`.
+```
+
+Interactive data comes from a new optional manifest key, `data[*]`
+(`{"id", "path", "sha256"}`); data blocks must be
+`type="application/json"`. Outside a registered figure's `sci-media`
+region, an `<img>` or SVG `<image>` must reference a path in `figures[*]`,
+and every other media-embedding element is an error.
 
 ### Prose
 
@@ -245,10 +249,12 @@ waiver as a JavaScript comment (`// ANALYSIS_OK[script-data-literal]: …`).
 ## Install
 
 ```bash
-pip install scitexlintr
+pip install "scitexlintr>=0.2"     # the HTML frontend needs 0.2.0 or later
 ```
 
-Verify with `scitexlintr --help`.
+Verify with `scitexlintr --version` (0.1.x has no `--version` flag). For a
+gate that should fail only on errors, pass `--fail-on=error`; by default any
+remaining finding, warnings included, exits 1.
 
 ## Usage
 
@@ -478,7 +484,7 @@ tex/scitexlintr/
 cd tex/scitexlintr
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
-.venv/bin/pytest             # 181 tests
+.venv/bin/pytest             # 214 tests
 .venv/bin/scitexlintr tests/data/report.tex --manifest=tests/data/manifest.json
 ```
 

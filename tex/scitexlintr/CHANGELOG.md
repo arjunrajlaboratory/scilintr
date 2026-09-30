@@ -57,6 +57,10 @@
   `<embed>`.
 - `data-precision` and the id→macro transform accept ASCII digits only
   (a `²` no longer crashes the run).
+- `--fail-on=error` exits 1 only for error-severity findings (default
+  `any` is unchanged).
+- In TeX, the fix suggested for a rendered-form `raw-generated-value` uses
+  the stored value as the `\SciVal` snapshot, which is what TeX checks.
 - HTML port of the end-to-end corpus (`tests/data/report.html`).
 - CI workflow for this package (`.github/workflows/tex-check.yaml`).
 

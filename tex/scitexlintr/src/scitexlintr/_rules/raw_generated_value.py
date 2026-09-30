@@ -80,12 +80,14 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
                 continue
             seen_offsets.add(m.start())
             label = number + suffix
+            # HTML spans show the rendered form; a TeX \SciVal snapshot is the stored value.
+            snapshot = label if getattr(doc, "fmt", "tex") == "html" else entry.value_repr
             line, col = doc.lookup(m.start())
             findings.append(
                 Finding(
                     rule=CODE, line=line, col=col, severity="error",
                     message=(f"raw value {label!r} is the rendered form of manifest id={entry.id}; "
-                             f"wrap with {doc.wrap_hint(entry, label)}"),
+                             f"wrap with {doc.wrap_hint(entry, snapshot)}"),
                 )
             )
             break

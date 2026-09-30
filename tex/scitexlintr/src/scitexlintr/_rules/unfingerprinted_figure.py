@@ -1,9 +1,9 @@
-"""unfingerprinted-figure — \\includegraphics with a path the manifest doesn't know.
+"""unfingerprinted-figure — a figure the manifest does not vouch for.
 
-We don't (yet) verify the SHA — that requires file access and is a
-``--strict`` feature. The path-membership check alone catches the common
-failure: a figure regenerated under a different name, or a one-off plot
-shipped without being registered.
+TeX: ``\\includegraphics`` with a path not in ``figures[*]`` (the sha256 is
+not checked in TeX — that needs file access). The path check catches the
+common failure: a figure regenerated under a different name, or a one-off
+plot shipped without being registered.
 
 Path matching is forgiving in the same ways LaTeX is forgiving:
 
@@ -34,9 +34,12 @@ is:
   ``unfingerprinted-data`` instead.
 * ``<figure data-sci-diagram>`` — a hand-drawn schematic; its text is prose.
 
-A ``<figure>`` declaring none of these, or an ``<img>`` / ``<object>`` /
-``<embed>`` outside a registered figure whose path is not in the manifest,
-is an error.
+A ``<figure>`` declaring none of these is an error, and so is every
+media-embedding element (``<img>``, SVG ``<image>``, ``<source>``,
+``<video>``, ``<audio>``, ``<iframe>``, ``<object>``, ``<embed>``,
+``<canvas>``) outside a registered figure's ``sci-media`` region — except an
+``<img>`` / ``<image>`` whose path is in ``figures[*]``, and a ``<canvas>``
+inside an interactive figure.
 """
 
 from __future__ import annotations
