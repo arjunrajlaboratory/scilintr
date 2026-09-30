@@ -26,6 +26,7 @@ class TexDoc:
     macro_calls: tuple[MacroCall, ...]
     prose_mask: bytearray
     lookup: Callable[[int], tuple[int, int]]
+    fmt: str = "tex"
 
     # Cached views (populated lazily by rules that need them).
     _calls_by_name: dict[str, tuple[MacroCall, ...]] | None = field(default=None, repr=False)
@@ -42,6 +43,11 @@ class TexDoc:
         if 0 <= offset < len(self.prose_mask):
             return bool(self.prose_mask[offset])
         return False
+
+    def wrap_hint(self, entry, label: str) -> str:
+        """The wrapper spelling a rule suggests for a raw manifest value."""
+        wrapper = "SciText" if isinstance(entry.value, str) else "SciVal"
+        return f"\\{wrapper}{{\\{entry.macro_name}}}{{{label}}}"
 
     def offset_in_wrapper_first_arg(self, offset: int) -> bool:
         """True if ``offset`` lies inside the first argument of a wrapper macro

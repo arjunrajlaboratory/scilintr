@@ -58,8 +58,7 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
                     col=col,
                     message=(
                         f"raw value {label!r} appears in prose; wrap with "
-                        f"\\SciVal{{\\{entry.macro_name}}}{{{label}}} "
-                        f"(manifest id={entry.id})"
+                        f"{doc.wrap_hint(entry, label)} (manifest id={entry.id})"
                     ),
                     severity="error",
                 )

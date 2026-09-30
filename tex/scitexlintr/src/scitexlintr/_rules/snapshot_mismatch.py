@@ -3,10 +3,18 @@
 The cardinal scitexlintr check: the human-readable snapshot in the second
 argument of every wrapper macro must agree with the value that the macro
 expands to. Drift = lint error. Auto-fixable via ``--write``.
+
+HTML has no macro expansion, so the rendered text of a
+``<span data-sci-val="id">…</span>`` wrapper *is* the snapshot. It must
+equal the manifest value rendered through the ``unit`` / ``precision`` /
+``display_html`` contract in ``_display``; ``--write`` rewrites it.
 """
 
 from __future__ import annotations
 
+import html
+
+from scitexlintr._display import expected_html
 from scitexlintr._doc import TexDoc, extract_macro_ref
 from scitexlintr._finding import Finding, Fix
 from scitexlintr._manifest import Manifest, values_equal_as_snapshot
@@ -18,6 +26,8 @@ CODE = "snapshot-mismatch"
 def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
     if manifest is None:
         return []
+    if doc.fmt == "html":
+        return _check_html(doc, manifest)
     findings: list[Finding] = []
     for wrapper_name in ("SciVal", "SciText"):
         for call in doc.calls(wrapper_name):
@@ -57,6 +67,48 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
                     ),
                 )
             )
+    return findings
+
+
+def _check_html(doc, manifest: Manifest) -> list[Finding]:
+    findings: list[Finding] = []
+    for w in doc.wrappers:
+        entry = manifest.resolve_number(w.key)
+        if entry is None or entry.value is None:
+            continue  # unknown ids belong to unknown-value-id
+        expected = expected_html(entry)
+        line, col = doc.lookup(w.inner_start)
+        if expected.problem is not None:
+            findings.append(
+                Finding(
+                    rule=CODE, line=line, col=col, severity="error",
+                    message=f"cannot check rendered value for id={entry.id}: {expected.problem}",
+                )
+            )
+            continue
+        if expected.exact:
+            ok = w.text == " ".join(expected.text.split())
+        else:
+            ok = values_equal_as_snapshot(entry.value, w.text)
+        if ok:
+            continue
+        findings.append(
+            Finding(
+                rule=CODE,
+                line=line,
+                col=col,
+                message=(
+                    f"rendered value {_quote(w.text)} disagrees with manifest "
+                    f"id={entry.id}, which renders as {_quote(expected.text)}"
+                ),
+                severity="error",
+                fix=Fix(
+                    start=w.inner_start,
+                    end=w.inner_end,
+                    replacement=html.escape(expected.text, quote=False),
+                ),
+            )
+        )
     return findings
 
 

@@ -1,0 +1,38 @@
+name: scitexlintr tests
+
+on:
+  push:
+    paths:
+      - 'tex/**'
+      - '.github/workflows/tex-check.yaml'
+  pull_request:
+    paths:
+      - 'tex/**'
+      - '.github/workflows/tex-check.yaml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.13"]
+    defaults:
+      run:
+        working-directory: tex/scitexlintr
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install package
+        run: pip install -e ".[dev]"
+
+      - name: Run tests
+        run: pytest -v
+
+      - name: Build and check distributions
+        run: |
+          python -m build
+          twine check dist/*

@@ -6,16 +6,16 @@ import argparse
 import sys
 from pathlib import Path
 
-from scitexlintr._engine import apply_fixes, lint_file
+from scitexlintr._engine import apply_fixes, format_for_path, lint_file
 from scitexlintr._manifest import load_manifest
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="scitexlintr",
-        description="Lint LaTeX reports for scientific drift",
+        description="Lint LaTeX and HTML reports for scientific drift",
     )
-    parser.add_argument("paths", nargs="+", help=".tex files to lint")
+    parser.add_argument("paths", nargs="+", help=".tex or .html report files to lint")
     parser.add_argument(
         "--manifest",
         type=str,
@@ -36,7 +36,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--write",
         action="store_true",
-        help="auto-fix snapshot-mismatch findings in place",
+        help="auto-fix snapshot-mismatch findings in place (HTML: rewrites rendered values)",
     )
     parser.add_argument(
         "--summary",
@@ -59,7 +59,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         if args.write:
             source = p.read_text(encoding="utf-8")
-            new_source, n_fixed = apply_fixes(source, findings)
+            new_source, n_fixed = apply_fixes(source, findings, fmt=format_for_path(p))
             if n_fixed:
                 p.write_text(new_source, encoding="utf-8")
                 print(f"{p}: rewrote {n_fixed} snapshot(s)", file=sys.stderr)

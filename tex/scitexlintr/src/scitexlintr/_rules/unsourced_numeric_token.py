@@ -145,7 +145,7 @@ def _is_threshold_context(text: str, offset: int, body_start: int) -> bool:
         i -= 1
     if i < body_start:
         return False
-    if text[i] in "<>":
+    if text[i] in "<>≤≥≪≫":
         return True
     # Multi-char comparison spellings: ``<=``, ``>=``, ``!=`` (the threshold
     # regex matches ``<=`` / ``>=`` too, so we must mirror them here or the

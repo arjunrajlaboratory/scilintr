@@ -9,6 +9,11 @@ Mirror of scilintr's Python waiver pattern, adapted to TeX comment syntax:
 
 A waiver on line L suppresses findings on lines L..L+4 — the same forward
 window scilintr uses, so authors don't have to learn two conventions.
+
+HTML sources spell the same waiver as a comment,
+``<!-- ANALYSIS_OK[category]: explanation -->``. A multi-line HTML comment
+counts from the line it ends on. ``%`` means nothing in HTML, so a
+TeX-style waiver in an HTML file is ordinary text and waives nothing.
 """
 
 from __future__ import annotations
@@ -53,6 +58,29 @@ def find_waivers(source: str) -> list[Waiver]:
                     explanation=m.group("explanation"),
                 )
             )
+    return waivers
+
+
+_HTML_WAIVER_RE = re.compile(
+    r"^\s*ANALYSIS_OK\[(?P<category>[\w-]+)\]:\s*(?P<explanation>\S.*?)\s*$", re.S
+)
+
+
+def find_html_waivers(doc) -> list[Waiver]:
+    """Waivers in an HTML document's comments (see ``_html.HtmlDoc.comments``)."""
+    waivers: list[Waiver] = []
+    for c in doc.comments:
+        m = _HTML_WAIVER_RE.match(c.text)
+        if not m:
+            continue
+        line, _ = doc.lookup(max(c.end - 1, c.start))
+        waivers.append(
+            Waiver(
+                line=line,
+                category=m.group("category"),
+                explanation=" ".join(m.group("explanation").split()),
+            )
+        )
     return waivers
 
 

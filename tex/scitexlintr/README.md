@@ -1,8 +1,12 @@
-# scitexlintr — Scientific Linting for LaTeX Reports
+# scitexlintr — Scientific Linting for LaTeX and HTML Reports
 
 Catches numeric drift, raw values, unverified figures, and unsourced claims
-in `.tex` source. Companion to [scilintr](../../README.md), which lints
-analysis code (Python/R).
+in `.tex` and `.html` report sources. Companion to
+[scilintr](../../README.md), which lints analysis code (Python/R).
+
+The same rule catalog and manifest contract apply to both formats; the file
+extension picks the frontend (`.html` / `.htm` → HTML, anything else → TeX).
+See [HTML reports](#html-reports) for the HTML spelling of each convention.
 
 ```text
 scilintr     →  scientific commitments in analysis CODE
@@ -126,6 +130,80 @@ The macros themselves are emitted by upstream tooling (mycelium's
 `render_report_values_tex`, or any equivalent); scitexlintr does not emit
 them — it only predicts their names so it can match snapshots.
 
+## HTML reports
+
+HTML has no macro expansion, so the HTML conventions check the rendered
+text itself. Everything else — the manifest, the rules, the waiver
+semantics — is shared with TeX.
+
+### Value wrappers
+
+```html
+We analyzed <span data-sci-val="diff-expr.n_samples">48</span> samples.
+For <span data-sci-text="contrast_phrase">treated versus control</span>, …
+<span data-sci-val="frac_dated">96.5%</span> of dated claims …
+```
+
+The attribute names a manifest id (exact, or namespace-stripped and resolved
+through the same id→macro transform, so `n_samples` finds
+`diff-expr.n_samples`). The span's **rendered text is the snapshot**, and
+`snapshot-mismatch` checks it against the manifest value rendered through
+the display contract:
+
+| Manifest entry | Rendered text must be |
+|---|---|
+| `"unit": "percent", "precision": 1`, value `0.9653` | `96.5%` exactly |
+| `"display_html": "2.5×"` | `2.5×` exactly |
+| only a TeX `"display"` override | error — add `display_html` |
+| plain number `15122` | any equal spelling (`15122`, `15,122`) |
+| plain string | the string exactly |
+
+`--write` rewrites stale rendered text (HTML-escaped). A wrapper whose
+content contains markup is reported but not rewritten.
+
+### Figures and interactive data
+
+Every `<figure>` declares what it is:
+
+```html
+<figure data-sci-fig="volcano_de" data-sha256="b4e3…">   <!-- registered figure -->
+  <svg>…</svg>  or  <img src="data:image/png;base64,…">
+  <figcaption>…</figcaption>                               <!-- caption is prose -->
+</figure>
+
+<figure data-sci-interactive="growth">                     <!-- slider / animation -->
+  <script type="application/json" data-sci-data="growth_series" data-sha256="9f9f…">…</script>
+  <output data-sci-live></output>                          <!-- runtime readout: not prose -->
+</figure>
+
+<figure data-sci-diagram>…</figure>                        <!-- hand-drawn schematic: text is prose -->
+```
+
+`data-sha256` must equal the manifest's `sha256` for that figure (a stale
+inlined copy is drift). Interactive data comes from a new optional manifest
+key, `data[*]` (`{"id", "path", "sha256"}`). An `<img>` / `<object>` /
+`<embed>` outside a registered figure must reference a path in
+`figures[*]`.
+
+### Prose
+
+Prose is text content inside `<body>`, excluding `<head>`, `<script>`,
+`<style>`, `<code>`, `<pre>`, `<kbd>`, `<samp>`, `<math>`, `<template>`,
+`<textarea>`, `<noscript>`, attribute values, comments, wrapper content,
+`data-sci-live` readouts, and registered figure media (the figcaption stays
+prose). Character references are decoded in place, so `p &lt; 0.05` and
+`p ≤ 0.05` are thresholds, and `&#8211;` contributes no digits.
+
+### Waivers
+
+```html
+<!-- ANALYSIS_OK[unsourced-numeric-token]: publication year of the cited atlas -->
+<p>The 2019 atlas …</p>
+```
+
+Same four-line forward window as TeX, counted from the line the comment
+ends on. A `%` line means nothing in HTML.
+
 ## Install
 
 ```bash
@@ -152,6 +230,9 @@ scitexlintr report.tex --manifest=.manifest.json --no-waivers
 # Restrict to specific rules
 scitexlintr report.tex --rules=snapshot-mismatch,raw-generated-value
 
+# HTML reports: same flags; --write rewrites stale rendered values
+scitexlintr report.html --manifest=.manifest.json --write
+
 # Per-rule count summary instead of per-finding lines
 scitexlintr report.tex --manifest=.manifest.json --summary
 ```
@@ -162,11 +243,13 @@ CLI lists findings as `path:line:col: [rule-code] message`.
 Library API:
 
 ```python
-from scitexlintr import lint_tex, lint_file, load_manifest, apply_fixes
+from scitexlintr import lint_tex, lint_html, lint_file, load_manifest, apply_fixes
 
 manifest = load_manifest(".manifest.json")
 findings = lint_tex(source_string, filename="report.tex", manifest=manifest)
 new_source, n_applied = apply_fixes(source_string, findings)
+# HTML: lint_html(...) and apply_fixes(source, findings, fmt="html");
+# lint_file picks the frontend from the file extension.
 ```
 
 ## Rule catalog
@@ -178,11 +261,21 @@ new_source, n_applied = apply_fixes(source_string, findings)
 | `snapshot-mismatch` | error | `\SciVal{\Macro}{stale}` where the snapshot disagrees with the manifest value. Auto-fixable with `--write` (string values are TeX-escaped before writing; fixes that would erase a TeX comment inside the snapshot brace are skipped). |
 | `raw-generated-value` | error | A literal `48` or `"treated versus control"` in prose that matches a manifest value. Handles scientific notation (`1e-8` and `1e-08`) and comma-grouped integers (`15,122`). |
 | `bare-generated-macro` | warning | `\NSamples` used directly in prose without a `\SciVal` wrapper — fresh but unreviewable. Skips structural-macro args (`\label`, `\ref`, `\cite`, `\input`, …) just like the prose mask does for every other rule. |
-| `unwrapped-threshold` | error | `FDR < 0.05` in prose when `\FDRThreshold` exists in the manifest. Recognizes `<`, `>`, `<=`, `>=`, `\le`, `\leq`, `\ge`, `\geq`, `\ll`, `\gg`; numbers include scientific notation. |
+| `unwrapped-threshold` | error | `FDR < 0.05` in prose when `\FDRThreshold` exists in the manifest. Recognizes `<`, `>`, `<=`, `>=`, `\le`, `\leq`, `\ge`, `\geq`, `\ll`, `\gg`, and Unicode `≤ ≥ ≪ ≫`; numbers include scientific notation. |
 | `unfingerprinted-figure` | error | `\includegraphics{...}` referencing a path not in `manifest.figures[*]`. Forgiving in one direction: a tex-side extensionless path (`figures/foo`) matches a manifest-side `figures/foo.pdf`. |
 | `unsourced-numeric-token` | warning | Any numeric token in prose with no corresponding manifest entry. Skips structural references (`Section 4.2`, `Figure (3)`), typographic percentages (`50\%`), threshold contexts, scientific-notation tails, and tokens already accounted for by `handwritten-numeric-claim`. |
 | `overloaded-term-no-warning` | warning | A term in `manifest.terms[*]` with `overloaded_warning` set, but the warning is absent both before the first use AND from the same sentence as the first use. |
 | `forbidden-alias` | error | A manifest value used with one of its `label_aliases_forbidden` (e.g., calling `exact_accuracy` "accuracy"). Skips occurrences that are part of the canonical label. |
+
+### HTML-only rules (require `--manifest`)
+
+| Rule | Severity | What it catches |
+|---|---|---|
+| `unknown-value-id` | error | `<span data-sci-val="n_smaples">` naming no manifest id. (TeX needs no such rule: an undefined macro stops compilation.) |
+| `unfingerprinted-data` | error | A `data-sci-data` block whose id is not in `manifest.data[*]` or whose `data-sha256` disagrees, or a `data-sci-interactive` figure with no registered data block. |
+
+`bare-generated-macro` is TeX-only. In HTML, `unfingerprinted-figure` also
+flags undeclared `<figure>` elements and stale `data-sha256` attributes.
 
 ### Manifest-free rules (always on)
 
@@ -319,6 +412,8 @@ tex/scitexlintr/
 │   ├── _finding.py             <- Finding + Fix dataclasses
 │   ├── _manifest.py            <- JSON loader + id→macro transform
 │   ├── _parser.py              <- TeX scanner (comments, verbatim, balanced braces, prose mask)
+│   ├── _html.py                <- HTML scanner (stdlib html.parser; same prose-mask view)
+│   ├── _display.py             <- unit / precision / display rendering contract
 │   ├── _waivers.py             <- TeX-comment ANALYSIS_OK[...] detection
 │   └── _rules/                 <- one file per rule
 └── tests/
@@ -327,6 +422,7 @@ tex/scitexlintr/
     ├── test_corpus.py          <- end-to-end against tests/data/
     └── data/
         ├── report.tex          <- annotated `% LINT-EXPECT[rule]` / `% LINT-OK`
+        ├── report.html         <- HTML port, `<!-- LINT-EXPECT[rule] -->` / `<!-- LINT-OK -->`
         └── manifest.json
 ```
 
@@ -336,11 +432,13 @@ tex/scitexlintr/
 cd tex/scitexlintr
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
-.venv/bin/pytest             # 117 tests
+.venv/bin/pytest             # 167 tests
 .venv/bin/scitexlintr tests/data/report.tex --manifest=tests/data/manifest.json
 ```
 
-The end-to-end corpus is `tests/data/report.tex` + `tests/data/manifest.json`.
+The end-to-end corpora are `tests/data/report.tex` and its HTML port
+`tests/data/report.html`, sharing `tests/data/manifest.json`; the HTML
+corpus mirrors every TeX case so both frontends meet the same expectations.
 Each marker comment `% LINT-EXPECT[rule,rule,...]` or `% LINT-OK` on the
 line immediately above a code line documents (and asserts) what the
 linter should find on that line. Strict exclusivity: a `LINT-EXPECT`

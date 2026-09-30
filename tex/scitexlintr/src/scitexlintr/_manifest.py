@@ -6,10 +6,16 @@ The manifest is scitexlintr's published contract. Schema (every key optional):
       "numbers": [
         {"id": "...", "value": ...,
          "label_canonical": "...",            (optional)
-         "label_aliases_forbidden": [...]}    (optional)
+         "label_aliases_forbidden": [...],    (optional)
+         "unit": "percent", "precision": 1,   (optional; derived display)
+         "display": "...",                    (optional; TeX display override)
+         "display_html": "..."}               (optional; HTML display override)
       ],
       "figures": [
         {"id": "...", "path": "...", "sha256": "..."}
+      ],
+      "data": [
+        {"id": "...", "path": "...", "sha256": "..."}   (HTML interactives)
       ],
       "terms": [
         {"id": "...", "expansion": "...",
@@ -72,6 +78,10 @@ class NumberEntry:
     macro_name: str  # without leading backslash, e.g., "NSamples"
     label_canonical: str | None = None
     label_aliases_forbidden: tuple[str, ...] = ()
+    unit: str | None = None
+    precision: object = 1
+    display: str | None = None
+    display_html: str | None = None
 
     @property
     def value_repr(self) -> str:
@@ -98,6 +108,14 @@ class FigureEntry:
 
 
 @dataclass(frozen=True)
+class DataEntry:
+    """A data file behind an interactive HTML figure (slider, animation)."""
+    id: str
+    path: str
+    sha256: str | None = None
+
+
+@dataclass(frozen=True)
 class TermEntry:
     id: str
     expansion: str
@@ -109,8 +127,22 @@ class Manifest:
     numbers: tuple[NumberEntry, ...] = ()
     figures: tuple[FigureEntry, ...] = ()
     terms: tuple[TermEntry, ...] = ()
+    data: tuple[DataEntry, ...] = ()
     by_macro: dict[str, NumberEntry] = field(default_factory=dict)
     by_figure_path: dict[str, FigureEntry] = field(default_factory=dict)
+    by_id: dict[str, NumberEntry] = field(default_factory=dict)
+    by_figure_id: dict[str, FigureEntry] = field(default_factory=dict)
+    by_data_id: dict[str, DataEntry] = field(default_factory=dict)
+
+    def resolve_number(self, key: str) -> NumberEntry | None:
+        """Look up a number by its exact manifest id, falling back to the
+        id→macro transform so a namespace-stripped key (``n_samples`` for
+        ``diff-expr.n_samples``) resolves the same way ``\\NSamples`` does."""
+        entry = self.by_id.get(key)
+        if entry is not None:
+            return entry
+        macro = id_to_macro_name(key)
+        return self.by_macro.get(macro) if macro else None
 
 
 def load_manifest(path: str | Path) -> Manifest:
@@ -134,6 +166,10 @@ def parse_manifest(raw: dict) -> Manifest:
                 macro_name=macro,
                 label_canonical=entry.get("label_canonical"),
                 label_aliases_forbidden=tuple(entry.get("label_aliases_forbidden") or []),
+                unit=entry.get("unit"),
+                precision=entry.get("precision", 1),
+                display=entry.get("display"),
+                display_html=entry.get("display_html"),
             )
         )
 
@@ -164,6 +200,15 @@ def parse_manifest(raw: dict) -> Manifest:
             )
         )
 
+    data: list[DataEntry] = []
+    for entry in raw.get("data", []) or []:
+        did = entry.get("id")
+        if not did:
+            continue
+        data.append(
+            DataEntry(id=did, path=entry.get("path", ""), sha256=entry.get("sha256"))
+        )
+
     by_macro = {n.macro_name: n for n in numbers}
     by_figure_path = {f.path: f for f in figures}
 
@@ -171,8 +216,12 @@ def parse_manifest(raw: dict) -> Manifest:
         numbers=tuple(numbers),
         figures=tuple(figures),
         terms=tuple(terms),
+        data=tuple(data),
         by_macro=by_macro,
         by_figure_path=by_figure_path,
+        by_id={n.id: n for n in numbers},
+        by_figure_id={f.id: f for f in figures},
+        by_data_id={d.id: d for d in data},
     )
 
 
