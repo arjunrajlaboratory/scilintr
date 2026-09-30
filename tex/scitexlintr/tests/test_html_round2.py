@@ -74,12 +74,6 @@ def test_figure_media_content_hash_detects_hand_edits():
     assert rules(lint(fig(media.replace("L1 1", "L1 0"), h(media)))) == ["unfingerprinted-figure"]
 
 
-def test_figure_content_hash_is_optional_without_markers():
-    # A figure without sci-media markers (hand-inlined) keeps the 0.2.0 contract.
-    body = f'<figure data-sci-fig="fig" data-sha256="{SRC}"><svg></svg></figure>'
-    assert lint(body) == []
-
-
 def test_numeric_array_literal_in_report_script_is_a_warning():
     found = lint("<script>draw([0.1, 0.2, 0.35, 0.5, 0.8, 1.3]);</script>")
     assert rules(found) == ["script-data-literal"]

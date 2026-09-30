@@ -67,13 +67,16 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
 
     # Rendered forms of unit-derived values: 0.9535 with unit percent is
     # written "95.4%", so that literal is as raw as "0.9535" would be.
+    by_number: dict[str, list] = {}
     for entry, number, suffix in derived_forms(manifest, getattr(doc, "fmt", "tex")):
-        for m in _NUMERIC_TOKEN_RE.finditer(doc.stripped, doc.body_start, doc.body_end):
-            if m.group(0) != number or not doc.in_prose(m.start()):
-                continue
-            if suffix and not doc.stripped.startswith(suffix, _skip_spaces(doc.stripped, m.end())):
-                continue
-            if m.start() in seen_offsets:
+        by_number.setdefault(number, []).append((entry, suffix))
+    for m in _NUMERIC_TOKEN_RE.finditer(doc.stripped, doc.body_start, doc.body_end) if by_number else ():
+        number = m.group(0)
+        if number not in by_number or not doc.in_prose(m.start()) or m.start() in seen_offsets:
+            continue
+        after = _skip_spaces(doc.stripped, m.end())
+        for entry, suffix in by_number[number]:
+            if suffix and not doc.stripped.startswith(suffix, after):
                 continue
             seen_offsets.add(m.start())
             label = number + suffix
@@ -85,6 +88,7 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
                              f"wrap with {doc.wrap_hint(entry, label)}"),
                 )
             )
+            break
     return findings
 
 

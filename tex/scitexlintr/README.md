@@ -164,7 +164,14 @@ Derived values round half-up on the value's decimal form (`0.9535` at
 precision 1 is `95.4%`). A span may narrow the precision of a derived value
 with `data-precision="0"` (a slide showing `95%` where the report shows
 `95.4%`). The rendered form of a derived value typed as bare text (`95.4%`
-in prose) is a `raw-generated-value`, in TeX (`95.4\%`) as in HTML.
+in prose) is a `raw-generated-value`, in TeX (`95.4\%`) as in HTML — for
+renderings with a fractional part; an integer rendering (`3`, `95%`) is too
+common in prose to attribute to one value.
+
+A span's id must match a manifest id exactly, or be a namespace-free key
+(`n_samples`) that maps to exactly one namespaced entry
+(`diff-expr.n_samples`). `b.n_samples` never resolves to `a.n_samples`,
+and an ambiguous local key is `unknown-value-id`.
 
 `--write` rewrites stale rendered text (HTML-escaped). A wrapper whose
 content contains markup is reported but not rewritten.
@@ -192,8 +199,9 @@ inlined copy is drift). Inlined content carries a second hash,
 `data-content-sha256`: the sha256 of the text between the
 `<!-- sci-media -->` / `<!-- /sci-media -->` markers of a figure, or of a
 data block's payload. The linter recomputes it, so a hand edit to inlined
-media or data fails even without access to the source file. (A figure
-without the markers — hand-inlined — is checked by `data-sha256` alone.)
+media or data fails even without access to the source file. A registered
+figure without the markers is an error: `data-sha256` alone can be copied
+from the manifest onto any image.
 
 Large tables generated from a registered file use the same pair:
 

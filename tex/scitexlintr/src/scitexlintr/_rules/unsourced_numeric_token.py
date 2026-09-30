@@ -74,7 +74,10 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
             doc.stripped, doc.body_start, doc.body_end
         )
     }
-    derived = {text for _, text, _ in derived_forms(manifest, getattr(doc, "fmt", "tex"))} if manifest else set()
+    derived: dict[str, set[str]] = {}
+    if manifest is not None:
+        for _, text, suffix in derived_forms(manifest, getattr(doc, "fmt", "tex")):
+            derived.setdefault(text, set()).add(suffix)
     for m in _NUMBER_RE.finditer(doc.stripped, doc.body_start, doc.body_end):
         offset = m.start()
         if offset in seen:
@@ -95,8 +98,12 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
         ):
             continue
 
-        # Rendered form of a unit-derived value -> raw-generated-value.
-        if num in derived:
+        # Rendered form of a unit-derived value -> raw-generated-value, which
+        # flags it only with its suffix (the % sign for a percent). A bare
+        # "95.4" beside a 95.4% entry is still unsourced.
+        if num in derived and any(
+            not sfx or doc.stripped.startswith(sfx, _skip_blank(doc.stripped, m.end())) for sfx in derived[num]
+        ):
             continue
 
         # Threshold context -> magic-tex-threshold / unwrapped-threshold.
@@ -134,6 +141,12 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
             )
         )
     return findings
+
+
+def _skip_blank(text: str, i: int) -> int:
+    while i < len(text) and text[i] in " \t":
+        i += 1
+    return i
 
 
 def _matches_manifest(manifest: Manifest, snap: str) -> bool:

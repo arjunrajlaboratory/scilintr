@@ -25,10 +25,11 @@ is:
 
 * ``<figure data-sci-fig="id" data-sha256="…">`` — a registered analysis
   figure. The id must be in ``figures[*]``, and when the manifest records a
-  sha256 the attribute must equal it (a stale inline copy is drift). When
-  the media sits between ``<!-- sci-media -->`` markers (as the sync tool
-  writes it), ``data-content-sha256`` must equal the sha256 of that text,
-  so a hand edit to the inlined figure is caught too.
+  sha256 the attribute must equal it (a stale inline copy is drift). The
+  media must sit between ``<!-- sci-media -->`` markers (the sync tool
+  writes it there), and ``data-content-sha256`` must equal the sha256 of
+  that text — ``data-sha256`` alone can be copied from the manifest onto
+  any image, so the content hash is what ties the pixels to the file.
 * ``<figure data-sci-interactive="name">`` — checked by
   ``unfingerprinted-data`` instead.
 * ``<figure data-sci-diagram>`` — a hand-drawn schematic; its text is prose.
@@ -133,7 +134,9 @@ def _check_html(doc, manifest: Manifest) -> list[Finding]:
                     f"figure {fig.fig_id!r} data-sha256 {fig.sha256[:12]}… disagrees with "
                     f"manifest sha256 {entry.sha256[:12]}… — the inlined copy is stale; re-sync it",
                 )
-            if entry is not None and fig.media is not None:
+            if entry is not None and fig.media is None:
+                emit(fig.start, f"figure {fig.fig_id!r} has no <!-- sci-media --> markers; inline it with sync_html_report.py")
+            elif entry is not None:
                 actual = hashlib.sha256(fig.media.encode("utf-8")).hexdigest()
                 if not fig.content_sha256:
                     emit(fig.start, f"figure {fig.fig_id!r} has inlined media but no data-content-sha256; re-sync it")

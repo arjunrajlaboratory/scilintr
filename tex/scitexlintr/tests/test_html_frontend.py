@@ -226,38 +226,42 @@ def test_write_skips_wrapper_containing_markup(html_manifest):
 # ---------------------------------------------------------------------------
 
 
-def test_registered_figure_with_matching_sha_passes(hlint):
-    body = (
-        f'<figure data-sci-fig="volcano" data-sha256="{SHA_VOLCANO}">'
-        '<svg viewBox="0 0 10 10"><text>1234</text></svg>'
-        "<figcaption>Volcano plot.</figcaption></figure>"
+def registered_figure(fig_id: str, sha: str | None, media: str, caption: str = "") -> str:
+    """Figure markup as sync_html_report.py writes it: media between the
+    sci-media markers, with data-content-sha256 over exactly that text."""
+    import hashlib
+
+    sha_attr = f' data-sha256="{sha}"' if sha is not None else ""
+    content = hashlib.sha256(media.encode("utf-8")).hexdigest()
+    cap = f"<figcaption>{caption}</figcaption>" if caption else ""
+    return (
+        f'<figure data-sci-fig="{fig_id}"{sha_attr} data-content-sha256="{content}">'
+        f'<div class="sci-media"><!-- sci-media -->{media}<!-- /sci-media --></div>{cap}</figure>'
     )
+
+
+def test_registered_figure_with_matching_sha_passes(hlint):
+    body = registered_figure("volcano", SHA_VOLCANO, '<svg viewBox="0 0 10 10"><text>1234</text></svg>', "Volcano plot.")
     assert hlint(body) == []
 
 
 def test_figure_media_text_is_not_prose_but_caption_is(hlint):
-    body = (
-        f'<figure data-sci-fig="volcano" data-sha256="{SHA_VOLCANO}">'
-        '<svg><text>1234</text></svg><figcaption>Shows 999 genes.</figcaption></figure>'
-    )
+    body = registered_figure("volcano", SHA_VOLCANO, "<svg><text>1234</text></svg>", "Shows 999 genes.")
     assert rules_of(hlint(body)) == ["unsourced-numeric-token"]
 
 
 def test_stale_inline_figure_sha_is_flagged(hlint):
-    body = '<figure data-sci-fig="volcano" data-sha256="' + "c" * 64 + '"><svg></svg></figure>'
-    found = hlint(body)
+    found = hlint(registered_figure("volcano", "c" * 64, "<svg></svg>"))
     assert rules_of(found) == ["unfingerprinted-figure"]
     assert "sha256" in found[0].message
 
 
 def test_missing_sha_attribute_is_flagged_when_manifest_has_one(hlint):
-    assert rules_of(hlint('<figure data-sci-fig="volcano"><svg></svg></figure>')) == [
-        "unfingerprinted-figure"
-    ]
+    assert rules_of(hlint(registered_figure("volcano", None, "<svg></svg>"))) == ["unfingerprinted-figure"]
 
 
-def test_manifest_without_sha_accepts_any(hlint):
-    assert hlint('<figure data-sci-fig="umap"><img alt="" src="data:image/png;base64,AA=="></figure>') == []
+def test_manifest_without_sha_accepts_any_registered_media(hlint):
+    assert hlint(registered_figure("umap", None, '<img alt="" src="data:image/png;base64,AA==">')) == []
 
 
 def test_unknown_figure_id_is_flagged(hlint):

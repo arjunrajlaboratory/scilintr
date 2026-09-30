@@ -133,16 +133,23 @@ class Manifest:
     by_id: dict[str, NumberEntry] = field(default_factory=dict)
     by_figure_id: dict[str, FigureEntry] = field(default_factory=dict)
     by_data_id: dict[str, DataEntry] = field(default_factory=dict)
+    macro_counts: dict[str, int] = field(default_factory=dict)
 
     def resolve_number(self, key: str) -> NumberEntry | None:
-        """Look up a number by its exact manifest id, falling back to the
-        id→macro transform so a namespace-stripped key (``n_samples`` for
-        ``diff-expr.n_samples``) resolves the same way ``\\NSamples`` does."""
+        """Look up a number by its exact manifest id. A key with no namespace
+        (``n_samples``) also resolves to a namespaced entry
+        (``diff-expr.n_samples``) through the id→macro transform — but only
+        when exactly one entry maps there. A key that names a namespace must
+        match exactly: ``b.n_samples`` never resolves to ``a.n_samples``."""
         entry = self.by_id.get(key)
         if entry is not None:
             return entry
+        if _NAMESPACE_SPLIT_RE.search(key):
+            return None
         macro = id_to_macro_name(key)
-        return self.by_macro.get(macro) if macro else None
+        if not macro or self.macro_counts.get(macro, 0) != 1:
+            return None
+        return self.by_macro.get(macro)
 
 
 def load_manifest(path: str | Path) -> Manifest:
@@ -222,7 +229,15 @@ def parse_manifest(raw: dict) -> Manifest:
         by_id={n.id: n for n in numbers},
         by_figure_id={f.id: f for f in figures},
         by_data_id={d.id: d for d in data},
+        macro_counts=_count_macros(numbers),
     )
+
+
+def _count_macros(numbers) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for n in numbers:
+        counts[n.macro_name] = counts.get(n.macro_name, 0) + 1
+    return counts
 
 
 def id_to_macro_name(manifest_id: str) -> str:

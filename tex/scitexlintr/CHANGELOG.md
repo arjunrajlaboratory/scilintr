@@ -32,6 +32,13 @@
   (`95.4%`, `95.4\%`).
 - `<time>` content is not prose.
 - `--version`; the CLI reports a missing input file instead of a traceback.
+- HTML value spans resolve by exact id, or by a namespace-free key only
+  when exactly one entry maps to it; a wrong or ambiguous namespace is
+  `unknown-value-id` rather than a silent match to another analysis.
+- A registered HTML figure must carry its media between `sci-media`
+  markers with a content hash; `data-sha256` alone is not enough.
+- Derived values with non-finite or very large magnitudes are reported as
+  findings instead of aborting the run.
 - HTML port of the end-to-end corpus (`tests/data/report.html`).
 - CI workflow for this package (`.github/workflows/tex-check.yaml`).
 

@@ -29,7 +29,8 @@ HTML wrappers may narrow the precision of a derived value per span with
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import ROUND_HALF_UP, Decimal
+import math
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation, localcontext
 
 SUPPORTED_UNITS = ("percent", "decimal")
 _TEX_MARKUP = set("\\${}^~")
@@ -60,10 +61,18 @@ def derive_unit(value: object, unit: str, precision: object, *, percent_sign: st
         raise ValueError(f"unit={unit!r} requires a numeric fraction value, got {value!r}")
     if isinstance(precision, bool) or not isinstance(precision, int) or precision < 0:
         raise ValueError(f"precision must be a non-negative int, got {precision!r}")
+    if isinstance(value, float) and not math.isfinite(value):
+        raise ValueError(f"unit={unit!r} requires a finite value, got {value!r}")
     d = Decimal(repr(value)) if isinstance(value, float) else Decimal(value)
-    if unit == "percent":
-        d = d * 100
-    text = str(d.quantize(Decimal(1).scaleb(-precision), rounding=ROUND_HALF_UP))
+    with localcontext() as ctx:
+        # Enough digits that quantize never overflows for large magnitudes.
+        ctx.prec = max(28, d.adjusted() + precision + 5)
+        if unit == "percent":
+            d = d * 100
+        try:
+            text = str(d.quantize(Decimal(1).scaleb(-precision), rounding=ROUND_HALF_UP))
+        except InvalidOperation as exc:
+            raise ValueError(f"cannot render {value!r} at precision {precision}") from exc
     if text in ("-0", "-0." + "0" * precision):
         text = text[1:]
     return text + (percent_sign if unit == "percent" else "")
@@ -120,7 +129,11 @@ def expected_html(entry, precision_override: int | None = None) -> Expected:
 def derived_forms(manifest, fmt: str):
     """``(entry, number_text, suffix)`` for every entry whose display is
     derived from a ``unit`` — the rendered forms a raw literal can take.
-    ``suffix`` is the percent sign as written in ``fmt`` (``\\%`` in TeX)."""
+    ``suffix`` is the percent sign as written in ``fmt`` (``\\%`` in TeX).
+
+    Only renderings with a fractional part count: an integer rendering
+    (``3``, or ``95`` for a percent at precision 0) is too common in prose
+    ("3 lanes", "95% confidence") to attribute to one manifest value."""
     out = []
     sign = "%" if fmt == "html" else "\\%"
     for entry in manifest.numbers:
@@ -129,6 +142,8 @@ def derived_forms(manifest, fmt: str):
         try:
             text = derive_unit(entry.value, entry.unit, entry.precision, percent_sign="")
         except ValueError:
+            continue
+        if "." not in text:
             continue
         out.append((entry, text, sign if entry.unit == "percent" else ""))
     return out
