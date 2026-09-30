@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import re
 
-from scitexlintr._doc import TexDoc
+from scitexlintr._doc import TexDoc, skip_inline_space
 from scitexlintr._finding import Finding
 from scitexlintr._display import derived_forms
 from scitexlintr._manifest import Manifest, values_equal_as_snapshot
@@ -102,7 +102,7 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
         # flags it only with its suffix (the % sign for a percent). A bare
         # "95.4" beside a 95.4% entry is still unsourced.
         if num in derived and any(
-            not sfx or doc.stripped.startswith(sfx, _skip_blank(doc.stripped, m.end())) for sfx in derived[num]
+            not sfx or doc.stripped.startswith(sfx, skip_inline_space(doc.stripped, m.end())) for sfx in derived[num]
         ):
             continue
 
@@ -141,12 +141,6 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
             )
         )
     return findings
-
-
-def _skip_blank(text: str, i: int) -> int:
-    while i < len(text) and text[i] in " \t":
-        i += 1
-    return i
 
 
 def _matches_manifest(manifest: Manifest, snap: str) -> bool:

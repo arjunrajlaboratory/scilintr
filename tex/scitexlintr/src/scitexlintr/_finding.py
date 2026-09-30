@@ -18,7 +18,12 @@ class Finding:
 
 @dataclass(frozen=True)
 class Fix:
-    """Byte-offset replacement for --write mode."""
+    """Byte-offset replacement for --write mode.
+
+    ``replaces_markup`` marks an HTML fix whose replacement is authored markup
+    (a manifest ``display_html`` with tags); only such a fix may overwrite a
+    region that already contains markup."""
     start: int
     end: int
     replacement: str
+    replaces_markup: bool = False

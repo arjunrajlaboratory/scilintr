@@ -110,7 +110,8 @@ def _check_html(doc, manifest: Manifest) -> list[Finding]:
                 fix=Fix(
                     start=w.inner_start,
                     end=w.inner_end,
-                    replacement=html.escape(expected.text, quote=False),
+                    replacement=expected.markup if expected.markup is not None else html.escape(expected.text, quote=False),
+                    replaces_markup=expected.markup is not None and "<" in expected.markup,
                 ),
             )
         )

@@ -39,6 +39,15 @@
   markers with a content hash; `data-sha256` alone is not enough.
 - Derived values with non-finite or very large magnitudes are reported as
   findings instead of aborting the run.
+- `display_html` is HTML markup: compared by rendered text, inserted
+  verbatim by `--write`. TeX ligatures (`--`, quotes) mark a `display` as TeX.
+- Only fractional percents are attributed to a manifest value from their
+  rendered form; rounded decimals fall to `unsourced-numeric-token`.
+- String values match on word boundaries in TeX and HTML (`WT` is not raw
+  inside `WTF1`).
+- `script-data-literal` scans balanced brackets with strings and comments
+  removed, exempts only the first runtime block, and honours
+  `// ANALYSIS_OK[…]` waivers inside scripts.
 - HTML port of the end-to-end corpus (`tests/data/report.html`).
 - CI workflow for this package (`.github/workflows/tex-check.yaml`).
 

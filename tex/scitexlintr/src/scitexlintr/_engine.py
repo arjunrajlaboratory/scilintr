@@ -121,7 +121,7 @@ def apply_fixes(
         # Comment guard: if the byte range contains an unescaped ``%``,
         # rewriting it would erase a comment.
         if fmt == "html":
-            if "<" in buf[fx.start : fx.end]:
+            if "<" in buf[fx.start : fx.end] and not fx.replaces_markup:
                 continue
         elif _contains_unescaped_percent(buf, fx.start, fx.end):
             continue

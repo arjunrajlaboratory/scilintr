@@ -66,9 +66,22 @@ _HTML_WAIVER_RE = re.compile(
 )
 
 
+_JS_WAIVER_RE = re.compile(
+    r"(?://|/\*)\s*ANALYSIS_OK\[(?P<category>[\w-]+)\]:\s*(?P<explanation>[^\n]*?\S)\s*(?:\*/)?\s*$", re.M
+)
+
+
 def find_html_waivers(doc) -> list[Waiver]:
-    """Waivers in an HTML document's comments (see ``_html.HtmlDoc.comments``)."""
+    """Waivers in an HTML document's comments (see ``_html.HtmlDoc.comments``)
+    and, inside ``<script>`` elements, in JavaScript comments
+    (``// ANALYSIS_OK[rule]: …`` or ``/* ANALYSIS_OK[rule]: … */``) — an HTML
+    comment cannot appear inside a script, so script findings would otherwise
+    be unwaivable."""
     waivers: list[Waiver] = []
+    for script in getattr(doc, "scripts", ()):
+        for m in _JS_WAIVER_RE.finditer(script.text):
+            line, _ = doc.lookup(script.body_start + m.start())
+            waivers.append(Waiver(line=line, category=m.group("category"), explanation=m.group("explanation")))
     for c in doc.comments:
         m = _HTML_WAIVER_RE.match(c.text)
         if not m:

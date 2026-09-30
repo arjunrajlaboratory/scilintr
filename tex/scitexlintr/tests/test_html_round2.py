@@ -136,7 +136,8 @@ def test_write_honors_per_span_precision():
 
 def test_rendered_form_of_derived_value_is_a_raw_value():
     assert rules(lint("<p>Of all claims, 95.4% were dated.</p>")) == ["raw-generated-value"]
-    assert rules(lint("<p>The mean degree was 7.48 links.</p>")) == ["raw-generated-value"]
+    # A rounded decimal is not evidence of one value (many literals round to it).
+    assert rules(lint("<p>The mean degree was 7.48 links.</p>")) == ["unsourced-numeric-token"]
 
 
 def test_version_flag(capsys):

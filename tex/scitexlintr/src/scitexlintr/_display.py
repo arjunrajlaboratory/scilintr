@@ -15,10 +15,14 @@ Selection order, identical in both formats:
    precision 2. Rounding is half-up on the value's decimal form, so
    ``0.9535`` at precision 1 is ``95.4%`` (binary-float formatting would give
    ``95.3%``).
-2. a format-specific override — ``display`` (TeX, verbatim) or
-   ``display_html`` (HTML, verbatim). In HTML a ``display`` with no TeX
-   markup (no ``\\ $ { } ^ ~``) is used as-is, so a plain ``"0.3183"`` needs
-   no ``display_html``.
+2. a format-specific override — ``display`` (TeX source, verbatim) or
+   ``display_html`` (HTML markup, verbatim: entities and inline tags such as
+   ``10<sup>-4</sup>`` are allowed). An HTML wrapper is compared by rendered
+   text, so ``3&times;`` and ``3×`` both satisfy ``display_html: "3&times;"``;
+   ``--write`` inserts the markup as written. A ``display`` with no TeX
+   markup is plain text and is used as-is in HTML; TeX markup means any of
+   ``\\ $ { } ^ ~ %`` or the ligatures ``--``, ````\`\```` and ``''``, which
+   need a ``display_html``.
 3. neither — the natural form of the value.
 
 HTML wrappers may narrow the precision of a derived value per span with
@@ -28,12 +32,20 @@ HTML wrappers may narrow the precision of a derived value per span with
 
 from __future__ import annotations
 
+import html
+import re
 from dataclasses import dataclass
 import math
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation, localcontext
 
 SUPPORTED_UNITS = ("percent", "decimal")
-_TEX_MARKUP = set("\\${}^~")
+_TEX_MARKUP_RE = re.compile(r"[\\${}^~%]|--|``|''")
+
+
+def rendered_text(markup: str) -> str:
+    """The text a browser shows for ``markup``: tags dropped, entities decoded,
+    whitespace collapsed."""
+    return " ".join(html.unescape(re.sub(r"<!--.*?-->|<[^>]*>", "", markup, flags=re.S)).split())
 
 
 @dataclass(frozen=True)
@@ -51,6 +63,7 @@ class Expected:
     text: str | None
     exact: bool
     problem: str | None = None
+    markup: str | None = None   # HTML to insert on --write (None: escape ``text``)
 
 
 def derive_unit(value: object, unit: str, precision: object, *, percent_sign: str) -> str:
@@ -111,8 +124,9 @@ def expected_html(entry, precision_override: int | None = None) -> Expected:
             return Expected(text=None, exact=True, problem=str(exc))
         return Expected(text=text, exact=True)
     if entry.display_html is not None:
-        return Expected(text=str(entry.display_html), exact=True)
-    if entry.display is not None and not (_TEX_MARKUP & set(str(entry.display))):
+        markup = str(entry.display_html)
+        return Expected(text=rendered_text(markup), exact=True, markup=markup)
+    if entry.display is not None and not _TEX_MARKUP_RE.search(str(entry.display)):
         return Expected(text=str(entry.display), exact=True)
     if entry.display is not None:
         return Expected(
@@ -131,13 +145,15 @@ def derived_forms(manifest, fmt: str):
     derived from a ``unit`` — the rendered forms a raw literal can take.
     ``suffix`` is the percent sign as written in ``fmt`` (``\\%`` in TeX).
 
-    Only renderings with a fractional part count: an integer rendering
-    (``3``, or ``95`` for a percent at precision 0) is too common in prose
-    ("3 lanes", "95% confidence") to attribute to one manifest value."""
+    Only fractional percents count (``95.4%``): the percent sign plus a
+    decimal part is specific enough to attribute a literal to one value. A
+    rounded ``decimal`` rendering (``1.5``) or an integer percent (``95%``)
+    is not evidence — many unrelated literals round to it — so those fall to
+    ``unsourced-numeric-token`` instead."""
     out = []
     sign = "%" if fmt == "html" else "\\%"
     for entry in manifest.numbers:
-        if entry.unit is None or entry.value is None:
+        if entry.unit != "percent" or entry.value is None:
             continue
         try:
             text = derive_unit(entry.value, entry.unit, entry.precision, percent_sign="")

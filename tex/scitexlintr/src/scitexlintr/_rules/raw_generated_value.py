@@ -23,7 +23,7 @@ from __future__ import annotations
 import re
 
 from scitexlintr._display import derived_forms
-from scitexlintr._doc import TexDoc
+from scitexlintr._doc import TexDoc, skip_inline_space
 from scitexlintr._finding import Finding
 from scitexlintr._manifest import Manifest, values_equal_as_snapshot
 from scitexlintr._rules._base import Rule
@@ -74,7 +74,7 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
         number = m.group(0)
         if number not in by_number or not doc.in_prose(m.start()) or m.start() in seen_offsets:
             continue
-        after = _skip_spaces(doc.stripped, m.end())
+        after = skip_inline_space(doc.stripped, m.end())
         for entry, suffix in by_number[number]:
             if suffix and not doc.stripped.startswith(suffix, after):
                 continue
@@ -90,12 +90,6 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
             )
             break
     return findings
-
-
-def _skip_spaces(text: str, i: int) -> int:
-    while i < len(text) and text[i] in " \t":
-        i += 1
-    return i
 
 
 # A maximal numeric token: optional sign, an integer part (optionally
@@ -119,14 +113,12 @@ def _find_value_matches(text: str, value: object):
     if isinstance(value, str):
         if not value:
             return
-        # Use a sliding find for verbatim matches.
-        i = 0
-        while True:
-            j = text.find(value, i)
-            if j < 0:
-                return
-            yield j, j + len(value), value
-            i = j + len(value)
+        # Verbatim, but on word boundaries: the value "WT" is not raw inside
+        # "WTF1" or "SWT", and a one-letter value never matches inside words.
+        lead = r"(?<!\w)" if value[0].isalnum() or value[0] == "_" else ""
+        trail = r"(?!\w)" if value[-1].isalnum() or value[-1] == "_" else ""
+        for m in re.finditer(lead + re.escape(value) + trail, text):
+            yield m.start(), m.end(), value
         return
 
     if isinstance(value, (int, float)) and not isinstance(value, bool):

@@ -82,6 +82,13 @@ def prepare(source: str, filename: str) -> TexDoc:
 # Helper: collapse arg text whose body is a single ``\macro`` reference.
 # ---------------------------------------------------------------------------
 
+def skip_inline_space(text: str, i: int) -> int:
+    """Offset of the first character at or after ``i`` that is not a space or tab."""
+    while i < len(text) and text[i] in " \t":
+        i += 1
+    return i
+
+
 _MACRO_REF_RE = re.compile(r"^\s*\\([A-Za-z@]+)\s*$")
 
 

@@ -156,7 +156,8 @@ the display contract:
 | `"unit": "decimal", "precision": 2`, value `7.47712` | `7.48` exactly |
 | `"display_html": "2.5×"` | `2.5×` exactly |
 | a plain-text `"display"` such as `"0.3183"` | that text exactly |
-| a TeX `"display"` (contains `\ $ { } ^ ~`) and no `display_html` | error — add `display_html` |
+| a TeX `"display"` (contains `\ $ { } ^ ~ %`, `--`, ```` `` ```` or `''`) and no `display_html` | error — add `display_html` |
+| `"display_html": "1.0 × 10<sup>-4</sup>"` (HTML markup) | the markup's rendered text; `--write` inserts the markup |
 | plain number `15122` | any equal spelling (`15122`, `15,122`) |
 | plain string | the string exactly |
 
@@ -165,8 +166,10 @@ precision 1 is `95.4%`). A span may narrow the precision of a derived value
 with `data-precision="0"` (a slide showing `95%` where the report shows
 `95.4%`). The rendered form of a derived value typed as bare text (`95.4%`
 in prose) is a `raw-generated-value`, in TeX (`95.4\%`) as in HTML — for
-renderings with a fractional part; an integer rendering (`3`, `95%`) is too
-common in prose to attribute to one value.
+fractional percents only. A rounded decimal (`1.5`) or an integer percent
+(`95%`) is not evidence of one value (many literals round to it) and is left
+to `unsourced-numeric-token`. String values match on word boundaries: `WT`
+is not raw inside `WTF1`.
 
 A span's id must match a manifest id exactly, or be a namespace-free key
 (`n_samples`) that maps to exactly one namespaced entry
@@ -233,7 +236,8 @@ stays prose), and registered table rows (the caption stays prose). Character ref
 ```
 
 Same four-line forward window as TeX, counted from the line the comment
-ends on. A `%` line means nothing in HTML.
+ends on. A `%` line means nothing in HTML. Inside a `<script>`, write the
+waiver as a JavaScript comment (`// ANALYSIS_OK[script-data-literal]: …`).
 
 ## Install
 
@@ -307,7 +311,7 @@ new_source, n_applied = apply_fixes(source_string, findings)
 |---|---|---|
 | `unknown-value-id` | error | `<span data-sci-val="n_smaples">` naming no manifest id. (TeX needs no such rule: an undefined macro stops compilation.) |
 | `unfingerprinted-data` | error | A `data-sci-data` block or `data-sci-table` whose id is not in `manifest.data[*]`, whose `data-sha256` disagrees, or whose content no longer matches its `data-content-sha256`; or a `data-sci-interactive` figure with no registered data block. |
-| `script-data-literal` | warning | An array of six or more numbers typed into a report script (outside the shared `sci-report-runtime` block) — interactive data belongs in a registered block. |
+| `script-data-literal` | warning | A bracketed literal with six or more numbers (flat arrays, point pairs, `{x, y}` objects; strings and comments ignored) typed into a report script other than the first `sci-report-runtime` block — interactive data belongs in a registered block. |
 
 `bare-generated-macro` is TeX-only. In HTML, `unfingerprinted-figure` also
 flags undeclared `<figure>` elements, stale `data-sha256` attributes, and

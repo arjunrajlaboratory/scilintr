@@ -1,13 +1,21 @@
 """script-data-literal — numeric data typed into a report script.
 
 Interactive figures must draw from registered, fingerprinted data blocks
-(``unfingerprinted-data``). A script that carries its own numeric arrays —
-``draw([0.1, 0.2, 0.35, 0.5, 0.8, 1.3])`` — sidesteps that check, so any
-array literal of six or more numbers in a report script (other than the
-shared ``sci-report-runtime`` block) is flagged. Short arrays such as
-margins or tick steps stay below the threshold.
+(``unfingerprinted-data``). A script that carries its own data sidesteps
+that check, so any array literal holding six or more numbers as values — a
+flat array, an array of point pairs, an array of ``{x, y}`` objects, with or
+without a trailing comma — is flagged. Strings and comments are ignored.
+Only numbers in value positions count (after ``[``, ``,`` or ``:`` and before
+``,``, ``]`` or ``}``), and an index access such as ``cols[0]`` is not an
+array literal, so indexes, call arguments (``toFixed(1)``), margins, and
+tick steps stay below the threshold.
 
-HTML only. Warning: legitimate constants exist; waive them with a reason.
+The first ``<script id="sci-report-runtime">`` (the shared runtime that
+``check_html_report.py`` compares against the template) is exempt; any other
+script is not, whatever its id.
+
+HTML only. Warning: legitimate constants exist; waive them inside the script
+with ``// ANALYSIS_OK[script-data-literal]: reason``.
 """
 
 from __future__ import annotations
@@ -20,8 +28,76 @@ from scitexlintr._rules._base import Rule
 
 CODE = "script-data-literal"
 MIN_NUMBERS = 6
-_ARRAY_RE = re.compile(r"\[([^\[\]]*)\]")
-_NUMBER_ITEM_RE = re.compile(r"^\s*[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?\s*$")
+# A number in a value position: after "[", "," or ":" and before ",", "]" or "}".
+_VALUE_NUMBER_RE = re.compile(
+    r"(?<=[\[,:])\s*[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?\s*(?=[,\]}])"
+)
+_INDEX_OPENER_RE = re.compile(r"[\w$)\]]\s*$")
+
+
+def blank_strings_and_comments(js: str) -> str:
+    """``js`` with string literals and comments replaced by spaces
+    (same length, newlines kept). Template-literal interpolations are
+    blanked too; regex literals are not recognized (rare in report code)."""
+    out = list(js)
+    i, n = 0, len(js)
+
+    def blank(a: int, b: int) -> None:
+        for k in range(a, min(b, n)):
+            if out[k] != "\n":
+                out[k] = " "
+
+    while i < n:
+        ch = js[i]
+        if js.startswith("//", i):
+            j = js.find("\n", i)
+            j = n if j < 0 else j
+            blank(i, j)
+            i = j
+        elif js.startswith("/*", i):
+            j = js.find("*/", i + 2)
+            j = n if j < 0 else j + 2
+            blank(i, j)
+            i = j
+        elif ch in "'\"`":
+            j = i + 1
+            while j < n and js[j] != ch:
+                j += 2 if js[j] == "\\" else 1
+            blank(i, j + 1)
+            i = j + 1
+        else:
+            i += 1
+    return "".join(out)
+
+
+def _blank_index_accesses(code: str) -> str:
+    """``code`` with the contents of index accesses (``a[0]``, ``f()[i]``)
+    blanked, so only array literals remain bracketed."""
+    out = list(code)
+    stack: list[tuple[int, bool]] = []
+    for i, ch in enumerate(code):
+        if ch == "[":
+            stack.append((i, bool(_INDEX_OPENER_RE.search(code[max(0, i - 40):i]))))
+        elif ch == "]" and stack:
+            start, is_index = stack.pop()
+            if is_index:
+                for k in range(start, i + 1):
+                    if out[k] != "\n":
+                        out[k] = " "
+    return "".join(out)
+
+
+def _outer_bracket_groups(code: str):
+    depth, start = 0, None
+    for i, ch in enumerate(code):
+        if ch == "[":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "]" and depth:
+            depth -= 1
+            if depth == 0:
+                yield start, i + 1
 
 
 def _check(doc, manifest: Manifest | None) -> list[Finding]:
@@ -31,14 +107,15 @@ def _check(doc, manifest: Manifest | None) -> list[Finding]:
     for script in doc.scripts:
         if script.runtime:
             continue
-        for m in _ARRAY_RE.finditer(script.text):
-            items = m.group(1).split(",")
-            if len(items) >= MIN_NUMBERS and all(_NUMBER_ITEM_RE.match(i) for i in items):
-                line, col = doc.lookup(script.body_start + m.start())
+        code = _blank_index_accesses(blank_strings_and_comments(script.text))
+        for a, b in _outer_bracket_groups(code):
+            count = len(_VALUE_NUMBER_RE.findall(code, a, b))
+            if count >= MIN_NUMBERS:
+                line, col = doc.lookup(script.body_start + a)
                 findings.append(
                     Finding(
                         rule=CODE, line=line, col=col, severity="warning",
-                        message=(f"array of {len(items)} numbers in a report script; draw interactive "
+                        message=(f"literal with {count} numbers in a report script; draw interactive "
                                  "figures from a registered data-sci-data block instead"),
                     )
                 )

@@ -317,9 +317,10 @@ class _Scanner(HTMLParser):
                               attrs.get("data-content-sha256"), body)
                 )
             elif "src" not in attrs and (attrs.get("type") or "").lower() in ("", "text/javascript", "module", "application/javascript"):
-                self.scripts.append(
-                    ScriptInfo(el.start, el.open_end, body, attrs.get("id") == "sci-report-runtime")
-                )
+                # Only the first runtime block is the shared runtime; a second
+                # one is report code wearing its id.
+                is_runtime = attrs.get("id") == "sci-report-runtime" and not any(s.runtime for s in self.scripts)
+                self.scripts.append(ScriptInfo(el.start, el.open_end, body, is_runtime))
 
     def _between_markers(self, name: str, lo: int, hi: int) -> str | None:
         """Source text between ``<!-- name -->`` and ``<!-- /name -->`` inside [lo, hi)."""
