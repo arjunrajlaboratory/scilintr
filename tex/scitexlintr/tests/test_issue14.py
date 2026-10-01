@@ -403,3 +403,16 @@ def test_cli_pools_definitions_across_files(tmp_path, capsys):
 def test_region_end_free_text_forms(end):
     ws = find_waivers(f"% ANALYSIS_OK_BEGIN[a]: why\nx\n{end}\n")
     assert len(ws) == 1 and ws[0].end_line == 3
+
+
+# -------------------- codex review --------------------
+
+
+@pytest.mark.parametrize("inp", ["\\input macros", "\\input macros.tex", "\\input{macros}", "\\include{macros}"])
+def test_input_forms_followed_for_definitions(tmp_path, inp):
+    from scitexlintr._macros import defined_macros_in_file
+
+    (tmp_path / "macros.tex").write_text(r"\newcommand{\LocalVal}{3}" + "\n")
+    main = tmp_path / "main.tex"
+    main.write_text(inp + "\n\\begin{document}\\end{document}\n")
+    assert "LocalVal" in defined_macros_in_file(main)

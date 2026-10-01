@@ -30,7 +30,11 @@ _DEFINITION_RE = re.compile(
     + r"|\\csname\s*" + _NAME + r"\s*\\endcsname"
 )
 
-_INCLUDE_RE = re.compile(r"\\(?:input|include|subfile)\s*\{\s*([^{}]+?)\s*\}")
+# \input{file}, \include{file}, \subfile{file} — and TeX's unbraced \input file
+_INCLUDE_RE = re.compile(
+    r"\\(?:input|include|subfile)\s*\{\s*([^{}]+?)\s*\}"
+    r"|\\input(?![A-Za-z@])[ \t]+([^\s{}\\%]+)"
+)
 
 _MAX_DEPTH = 10
 
@@ -62,7 +66,7 @@ def defined_macros_in_file(path: Path, _seen: set[Path] | None = None, _depth: i
         return set()
     found = defined_macros(text)
     for m in _INCLUDE_RE.finditer(text):
-        child = _resolve(m.group(1), path.parent)
+        child = _resolve(m.group(1) or m.group(2), path.parent)
         if child is not None:
             found |= defined_macros_in_file(child, seen, _depth + 1)
     return found
