@@ -302,3 +302,70 @@ def test_suppress_context_flags_suppress_bound_to_name(findings_for):
 
 def test_suppress_context_passes_relative_contextlib_import(has_finding):
     assert not has_finding(GOOD_RELATIVE_CONTEXTLIB, RULE)
+
+
+# -------------------- codex review --------------------
+
+GOOD_THIRD_PARTY_CONTEXTLIB = """
+from mylib import contextlib
+
+with contextlib.suppress():
+    x()
+"""
+
+GOOD_UNIMPORTED_CONTEXTLIB = """
+with contextlib.suppress(Exception):
+    x()
+"""
+
+SCOPED_IMPORT = """
+from mylib import suppress
+
+def a():
+    from contextlib import suppress
+    with suppress(Exception):
+        x()
+
+def b():
+    with suppress():
+        y()
+
+def c(suppress):
+    with suppress():
+        z()
+"""
+
+REBOUND_AFTER_IMPORT = """
+from contextlib import suppress
+
+suppress = make_logging_suppressor()
+
+with suppress():
+    x()
+"""
+
+MODULE_IMPORT_USED_IN_FUNCTION = """
+import contextlib as cl
+
+def go():
+    with cl.suppress(OSError):
+        x()
+"""
+
+
+def test_suppress_context_requires_stdlib_contextlib_module(has_finding):
+    assert not has_finding(GOOD_THIRD_PARTY_CONTEXTLIB, RULE)
+    assert not has_finding(GOOD_UNIMPORTED_CONTEXTLIB, RULE)
+
+
+def test_suppress_context_respects_lexical_scope(findings_for):
+    lines = [f.line for f in findings_for(SCOPED_IMPORT, RULE)]
+    assert lines == [6]  # only a()'s with
+
+
+def test_suppress_context_respects_rebinding(has_finding):
+    assert not has_finding(REBOUND_AFTER_IMPORT, RULE)
+
+
+def test_suppress_context_module_import_visible_in_function(has_finding):
+    assert has_finding(MODULE_IMPORT_USED_IN_FUNCTION, RULE)

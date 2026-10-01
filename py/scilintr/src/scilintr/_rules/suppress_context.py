@@ -16,6 +16,7 @@ import ast
 
 from scilintr._finding import Finding
 from scilintr._rules._base import Rule
+from scilintr._rules._scope import Imports
 
 CODE = "suppress-context"
 MESSAGE = (
@@ -25,35 +26,18 @@ MESSAGE = (
 )
 
 
-def _suppress_aliases(nodes: list[ast.AST]) -> tuple[set[str], set[str]]:
-    """Return (names bound to ``contextlib.suppress``, names bound to ``contextlib``).
+def _is_suppress_call(expr: ast.AST, imports: Imports) -> bool:
+    """A call resolving — through the enclosing scopes — to ``contextlib.suppress``.
 
-    A bare ``suppress`` counts only when imported from the stdlib ``contextlib``
-    — a project's own ``suppress()`` (or a relative ``.contextlib``) is not an
-    exception swallower.
-    """
-    func_names: set[str] = set()
-    module_names = {"contextlib"}
-    for node in nodes:
-        if isinstance(node, ast.ImportFrom) and node.module == "contextlib" and node.level == 0:
-            for alias in node.names:
-                if alias.name == "suppress":
-                    func_names.add(alias.asname or alias.name)
-        elif isinstance(node, ast.Import):
-            for alias in node.names:
-                if alias.name == "contextlib":
-                    module_names.add(alias.asname or alias.name)
-    return func_names, module_names
-
-
-def _is_suppress_call(expr: ast.AST, func_names: set[str], module_names: set[str]) -> bool:
+    A project's own ``suppress()``, a third-party or relative ``contextlib``, a
+    parameter or a rebinding named ``suppress`` is not the stdlib swallower."""
     if not isinstance(expr, ast.Call):
         return False
     func = expr.func
     if isinstance(func, ast.Name):
-        return func.id in func_names
+        return imports.origin(func) == ("contextlib", "suppress")
     if isinstance(func, ast.Attribute) and func.attr == "suppress":
-        return isinstance(func.value, ast.Name) and func.value.id in module_names
+        return imports.attr_origin(func.value) == "contextlib"
     return False
 
 
@@ -65,8 +49,8 @@ def _finding(line: int, col: int, waiver_end: int | None = None) -> Finding:
 
 def _check(tree: ast.AST, source: str, filename: str) -> list[Finding]:
     nodes = list(ast.walk(tree))
-    func_names, module_names = _suppress_aliases(nodes)
-    calls = [n for n in nodes if _is_suppress_call(n, func_names, module_names)]
+    imports = Imports(tree)
+    calls = [n for n in nodes if _is_suppress_call(n, imports)]
     if not calls:
         return []
     findings: list[Finding] = []
