@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from collections.abc import Iterable
 from pathlib import Path
 
 from scitexlintr._doc import prepare
 from scitexlintr._finding import Finding
 from scitexlintr._html import prepare_html
+from scitexlintr._macros import defined_macros_in_file
 from scitexlintr._manifest import Manifest, load_manifest
 from scitexlintr._rules import ALL_RULES
 from scitexlintr._waivers import find_html_waivers, find_waivers, is_waived
@@ -27,9 +29,15 @@ def lint_tex(
     manifest: Manifest | None = None,
     rules: list[str] | None = None,
     respect_waivers: bool = True,
+    defined_macros: Iterable[str] = (),
 ) -> list[Finding]:
-    """Lint a single TeX source string against an optional manifest."""
+    """Lint a single TeX source string against an optional manifest.
+
+    ``defined_macros`` names macros defined outside ``source`` (an
+    ``\\input`` file, another file of the report) so ``unknown-value-id``
+    does not report them."""
     doc = prepare(source, filename=filename)
+    doc.external_macros = frozenset(defined_macros)
     waivers = find_waivers(source) if respect_waivers else []
     return _run(doc, manifest, rules, waivers, filename)
 
@@ -73,17 +81,25 @@ def lint_file(
     manifest_path: str | Path | None = None,
     rules: list[str] | None = None,
     respect_waivers: bool = True,
+    defined_macros: Iterable[str] = (),
 ) -> list[Finding]:
+    """Lint a report file. For TeX, macros defined in files it ``\\input``\\ s
+    (plus ``defined_macros``) count as defined."""
     p = Path(path)
     source = p.read_text(encoding="utf-8")
     manifest = load_manifest(manifest_path) if manifest_path else None
-    lint = lint_html if format_for_path(p) == "html" else lint_tex
-    return lint(
+    if format_for_path(p) == "html":
+        return lint_html(
+            source, filename=str(p), manifest=manifest, rules=rules,
+            respect_waivers=respect_waivers,
+        )
+    return lint_tex(
         source,
         filename=str(p),
         manifest=manifest,
         rules=rules,
         respect_waivers=respect_waivers,
+        defined_macros=set(defined_macros) | defined_macros_in_file(p),
     )
 
 

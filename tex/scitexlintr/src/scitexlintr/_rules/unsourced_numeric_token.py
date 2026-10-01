@@ -16,9 +16,9 @@ from __future__ import annotations
 
 import re
 
-from scitexlintr._doc import TexDoc, skip_inline_space
+from scitexlintr._doc import TexDoc, skip_unit_space
 from scitexlintr._finding import Finding
-from scitexlintr._display import derived_forms
+from scitexlintr._display import derived_forms, normalize_number
 from scitexlintr._manifest import Manifest, values_equal_as_snapshot
 from scitexlintr._rules._base import Rule
 from scitexlintr._rules.handwritten_numeric_claim import HANDWRITTEN_PATTERN
@@ -77,7 +77,7 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
     derived: dict[str, set[str]] = {}
     if manifest is not None:
         for _, text, suffix in derived_forms(manifest, getattr(doc, "fmt", "tex")):
-            derived.setdefault(text, set()).add(suffix)
+            derived.setdefault(normalize_number(text), set()).add(suffix)
     for m in _NUMBER_RE.finditer(doc.stripped, doc.body_start, doc.body_end):
         offset = m.start()
         if offset in seen:
@@ -101,8 +101,11 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
         # Rendered form of a unit-derived value -> raw-generated-value, which
         # flags it only with its suffix (the % sign for a percent). A bare
         # "95.4" beside a 95.4% entry is still unsourced.
-        if num in derived and any(
-            not sfx or doc.stripped.startswith(sfx, skip_inline_space(doc.stripped, m.end())) for sfx in derived[num]
+        fmt = getattr(doc, "fmt", "tex")
+        norm = normalize_number(num)
+        if norm in derived and any(
+            not sfx or doc.stripped.startswith(sfx, skip_unit_space(doc.stripped, m.end(), fmt))
+            for sfx in derived[norm]
         ):
             continue
 
@@ -123,7 +126,7 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
             continue
 
         # Percentage: trailing ``\%``, ``%``, or `` percent``.
-        if _is_percent_context(doc.stripped, m.end(), doc.body_end):
+        if _is_percent_context(doc.stripped, m.end(), doc.body_end, fmt):
             continue
 
         seen.add(offset)
@@ -211,13 +214,11 @@ def _is_scientific_tail(text: str, offset: int, body_start: int) -> bool:
     return True
 
 
-def _is_percent_context(text: str, end_offset: int, body_end: int) -> bool:
-    # Typographic percent only — ``50\%`` and ``50%`` get skipped, but
-    # ``99.9 percent`` is left for the unsourced rule because the
+def _is_percent_context(text: str, end_offset: int, body_end: int, fmt: str = "tex") -> bool:
+    # Typographic percent only — ``50\%``, ``50\,\%`` and ``50%`` get skipped,
+    # but ``99.9 percent`` is left for the unsourced rule because the
     # spelled-out form usually denotes a result claim, not a casual figure.
-    j = end_offset
-    while j < body_end and text[j] in " \t":
-        j += 1
+    j = skip_unit_space(text, end_offset, fmt)
     if j >= body_end:
         return False
     if text[j] == "%":

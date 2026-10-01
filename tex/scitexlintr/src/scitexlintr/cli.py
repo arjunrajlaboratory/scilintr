@@ -8,6 +8,7 @@ from pathlib import Path
 
 from scitexlintr import __version__
 from scitexlintr._engine import apply_fixes, format_for_path, lint_file
+from scitexlintr._macros import defined_macros_in_file
 from scitexlintr._manifest import load_manifest
 
 
@@ -55,6 +56,13 @@ def main(argv: list[str] | None = None) -> int:
 
     rules = [r.strip() for r in args.rules.split(",")] if args.rules else None
 
+    # A multi-file report defines macros in one file and uses them in another
+    # (main.tex's preamble, chapter1.tex's prose): pool definitions over the run.
+    pooled: set[str] = set()
+    for raw in args.paths:
+        if Path(raw).is_file() and format_for_path(raw) == "tex":
+            pooled |= defined_macros_in_file(Path(raw))
+
     total_findings = 0
     failing = 0
     by_rule: dict[str, int] = {}
@@ -68,6 +76,7 @@ def main(argv: list[str] | None = None) -> int:
             manifest_path=args.manifest,
             rules=rules,
             respect_waivers=not args.no_waivers,
+            defined_macros=pooled,
         )
         if args.write:
             source = p.read_text(encoding="utf-8")
@@ -81,6 +90,7 @@ def main(argv: list[str] | None = None) -> int:
                 manifest_path=args.manifest,
                 rules=rules,
                 respect_waivers=not args.no_waivers,
+                defined_macros=pooled,
             )
 
         for f in findings:
