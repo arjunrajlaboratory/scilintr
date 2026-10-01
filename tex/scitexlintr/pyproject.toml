@@ -1,6 +1,6 @@
 [project]
 name = "scitexlintr"
-version = "0.2.0"
+version = "0.2.1"
 description = "Scientific linting for LaTeX and HTML reports — snapshot drift, unsourced numbers, unfingerprinted figures."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.11"

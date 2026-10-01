@@ -144,7 +144,7 @@ def test_version_flag(capsys):
     with pytest.raises(SystemExit) as exc:
         cli_main(["--version"])
     assert exc.value.code == 0
-    assert "0.2.0" in capsys.readouterr().out
+    assert "0.2.1" in capsys.readouterr().out
 
 
 def test_cli_reports_missing_file_without_traceback(tmp_path, capsys):
