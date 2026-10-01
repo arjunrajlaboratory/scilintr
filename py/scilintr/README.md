@@ -20,7 +20,7 @@ implemented:
 | `silent-fallback-return` | `except ...: return None` (or `[]`/`{}`/`0`/`NaN`) — failure path returns a degraded default |
 | `silent-default-rebind` | `except ...: x = {}` (or `[]`/`None`/`0`/`NaN`) — failure path rebinds a name to a degraded default |
 | `suppress-context` | `with contextlib.suppress(...):` — the context-manager spelling of `except ...: pass` |
-| `return-none-on-missing-input` | `if not path.exists(): return None` |
+| `return-none-on-missing-input` | `if not path.exists(): return None` — also `os.path.exists`/`isfile`/`isdir`, `Path.is_file()`/`is_dir()`, and any degraded return (`[]`/`{}`/`0`/`NaN`) |
 | `positional-metadata-access` | `df.iloc[:, 3]` for metadata columns |
 | `magic-threshold` | Bare numeric thresholds in DataFrame filters (`padj < 0.05`); `> 0` / `>= 0` natural floors are exempt |
 | `unchecked-merge` | `pd.merge(...)` with no `validate=` or row-count assert |
@@ -45,6 +45,19 @@ implemented:
 | `runtime-assert` | `assert` in production code (stripped by `-O`) |
 | `unvalidated-config` | Config dict read without a schema check |
 | `sentinel-mask-assignment` | `df.loc[mask, col] = -999` style sentinel writes |
+
+### Opt-in rules
+
+Higher-false-positive rules run only when named in `--enable` (added on top of
+the default rules) or `--rules` / `rules=` (exactly the listed rules):
+
+| Code | What it flags |
+|---|---|
+| `return-none-on-empty-input` | `if df is None: return None` — also `len(x) == 0`, `not len(x)`, `not x`, `df.empty` guards returning a degraded placeholder |
+
+```bash
+scilintr --enable return-none-on-empty-input src/
+```
 
 See [`../../analysis_lint_strategy.md`](../../analysis_lint_strategy.md) for
 the design rationale and [`../../docs/failure-modes.md`](../../docs/failure-modes.md)
