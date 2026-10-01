@@ -23,7 +23,7 @@ from __future__ import annotations
 import re
 
 from scitexlintr._display import derived_forms
-from scitexlintr._doc import TexDoc, skip_inline_space
+from scitexlintr._doc import TexDoc, phrase_pattern, skip_inline_space
 from scitexlintr._finding import Finding
 from scitexlintr._manifest import Manifest, values_equal_as_snapshot
 from scitexlintr._rules._base import Rule
@@ -44,7 +44,7 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
         if entry.value is None:
             continue
         for match_start, match_end, label in _find_value_matches(
-            doc.stripped, entry.value
+            doc.stripped, entry.value, getattr(doc, "fmt", "tex")
         ):
             if not doc.in_prose(match_start):
                 continue
@@ -103,7 +103,7 @@ _NUMERIC_TOKEN_RE = re.compile(
 )
 
 
-def _find_value_matches(text: str, value: object):
+def _find_value_matches(text: str, value: object, fmt: str = "tex"):
     """Yield ``(start, end, label)`` for every occurrence of ``value`` in ``text``.
 
     Numeric values are matched by scanning numeric tokens and comparing
@@ -115,11 +115,10 @@ def _find_value_matches(text: str, value: object):
     if isinstance(value, str):
         if not value:
             return
-        # Verbatim, but on word boundaries: the value "WT" is not raw inside
-        # "WTF1" or "SWT", and a one-letter value never matches inside words.
-        lead = r"(?<!\w)" if value[0].isalnum() or value[0] == "_" else ""
-        trail = r"(?!\w)" if value[-1].isalnum() or value[-1] == "_" else ""
-        for m in re.finditer(lead + re.escape(value) + trail, text):
+        # As a phrase, on word boundaries: the value "WT" is not raw inside
+        # "WTF1" or "SWT", and "treated versus control" matches across a line
+        # break or inline markup.
+        for m in phrase_pattern(value, fmt).finditer(text):
             yield m.start(), m.end(), value
         return
 

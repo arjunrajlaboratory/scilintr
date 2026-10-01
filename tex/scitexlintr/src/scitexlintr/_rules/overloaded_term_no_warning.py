@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import re
 
-from scitexlintr._doc import TexDoc
+from scitexlintr._doc import TexDoc, phrase_pattern
 from scitexlintr._finding import Finding
 from scitexlintr._manifest import Manifest
 from scitexlintr._rules._base import Rule
@@ -36,7 +36,7 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
         spellings = [(term.id, 0)] + [(w, re.IGNORECASE) for w in (term.expansion, *term.match) if w]
         first_match = None
         for word, flags in spellings:
-            pattern = re.compile(r"(?<![A-Za-z@])" + re.escape(word) + r"(?![A-Za-z@])", flags)
+            pattern = phrase_pattern(word, getattr(doc, "fmt", "tex"), flags, boundary="[A-Za-z@]")
             for m in pattern.finditer(doc.stripped, doc.body_start, doc.body_end):
                 if doc.in_prose(m.start()):
                     if first_match is None or m.start() < first_match.start():
@@ -50,10 +50,8 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
         # sentence ends at the next `.`, `!`, or `?` followed by
         # whitespace, a newline, or end of body.
         sentence_end = _sentence_end(doc.stripped, first_match.end(), doc.body_end)
-        warning_idx = doc.stripped.find(
-            term.overloaded_warning, doc.body_start, sentence_end
-        )
-        if warning_idx >= 0:
+        warning = phrase_pattern(term.overloaded_warning, getattr(doc, "fmt", "tex"), boundary="(?!)")
+        if warning.search(doc.stripped, doc.body_start, sentence_end):
             continue
         line, col = doc.lookup(first_match.start())
         findings.append(

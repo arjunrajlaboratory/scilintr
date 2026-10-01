@@ -67,6 +67,15 @@
   are warnings, not errors.
 - Worked-example tables (`data-sci-worked`) are fingerprinted against
   `manifest.worked_examples[*].rows`.
+- Phrase rules (string `raw-generated-value`, `forbidden-alias` and its
+  canonical-label exemption, `overloaded-term-no-warning` spellings and
+  warning text) match across any whitespace run — a line break in the
+  source, inline HTML markup, `&nbsp;`, or a TeX `~` tie — through one shared
+  `phrase_pattern`. Existing TeX reports whose forbidden aliases wrap across
+  a source line will now see those `forbidden-alias` errors.
+- `script-data-literal` treats a bracket after `return`, `yield`, `await`,
+  `typeof`, `case` (and similar keywords) as an array literal, not an index
+  access.
 - HTML port of the end-to-end corpus (`tests/data/report.html`).
 - CI workflow for this package (`.github/workflows/tex-check.yaml`).
 

@@ -82,6 +82,27 @@ def prepare(source: str, filename: str) -> TexDoc:
 # Helper: collapse arg text whose body is a single ``\macro`` reference.
 # ---------------------------------------------------------------------------
 
+def phrase_pattern(phrase: str, fmt: str = "tex", flags: int = 0, boundary: str = r"\w") -> "re.Pattern[str]":
+    """A regex for ``phrase`` as a reader sees it: words separated by any run
+    of whitespace — a line break in the source, the spaces an HTML tag or
+    ``&nbsp;`` leaves in the prose view (``treated <em>versus</em> control``),
+    or a TeX tie (``treated~versus``). Every rule that matches a phrase uses
+    this one definition, so none of them compares exact single spaces against
+    text whose whitespace varies.
+
+    ``boundary`` is the character class that must not touch the phrase's ends
+    (only enforced where the phrase itself starts or ends with one).
+    """
+    words = phrase.split()
+    if not words:
+        return re.compile(r"(?!)")
+    sep = r"(?:\s|~)+" if fmt == "tex" else r"\s+"
+    body = sep.join(re.escape(w) for w in words)
+    lead = rf"(?<!{boundary})" if re.match(boundary, words[0][0]) else ""
+    trail = rf"(?!{boundary})" if re.match(boundary, words[-1][-1]) else ""
+    return re.compile(lead + body + trail, flags)
+
+
 def skip_inline_space(text: str, i: int) -> int:
     """Offset of the first character at or after ``i`` that is not a space or tab."""
     while i < len(text) and text[i] in " \t":

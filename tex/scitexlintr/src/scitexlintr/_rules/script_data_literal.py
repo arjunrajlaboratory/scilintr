@@ -33,6 +33,20 @@ _VALUE_NUMBER_RE = re.compile(
     r"(?<=[\[,:])\s*[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?\s*(?=[,\]}])"
 )
 _INDEX_OPENER_RE = re.compile(r"[\w$)\]]\s*$")
+# A bracket after one of these keywords starts an array literal, not an
+# index access: `return [1, 2, 3]`, `yield [...]`, `case [...]`.
+_KEYWORDS_BEFORE_LITERAL = frozenset({
+    "return", "yield", "await", "typeof", "case", "in", "of", "new", "delete",
+    "void", "throw", "else", "do", "instanceof",
+})
+_LAST_WORD_RE = re.compile(r"([A-Za-z_$][\w$]*)\s*$")
+
+
+def _is_index_opener(before: str) -> bool:
+    if not _INDEX_OPENER_RE.search(before):
+        return False
+    word = _LAST_WORD_RE.search(before)
+    return not (word and word.group(1) in _KEYWORDS_BEFORE_LITERAL)
 
 
 def blank_strings_and_comments(js: str) -> str:
@@ -77,7 +91,7 @@ def _blank_index_accesses(code: str) -> str:
     stack: list[tuple[int, bool]] = []
     for i, ch in enumerate(code):
         if ch == "[":
-            stack.append((i, bool(_INDEX_OPENER_RE.search(code[max(0, i - 40):i]))))
+            stack.append((i, _is_index_opener(code[max(0, i - 40):i])))
         elif ch == "]" and stack:
             start, is_index = stack.pop()
             if is_index:
