@@ -213,3 +213,92 @@ def test_suppress_context_respects_waiver_inside_block(has_finding):
 def test_suppress_context_flagged_under_no_waivers(lint):
     findings = lint(WAIVED_ABOVE, respect_waivers=False)
     assert any(f.rule == RULE for f in findings)
+
+
+# -------------------- review round 2 --------------------
+
+WAIVED_INSIDE_MULTILINE_HEADER = """
+from contextlib import suppress
+
+with suppress(
+    KeyError,
+):
+    # ANALYSIS_OK[best-effort]: cleanup only
+    os.remove(tmp)
+"""
+
+WAIVED_TRAILING_CLOSING_PAREN = """
+from contextlib import suppress
+
+with suppress(
+    KeyError,
+):  # ANALYSIS_OK[best-effort]: cleanup only
+    os.remove(tmp)
+"""
+
+WAIVED_ABOVE_WITH_LEADING_BLOCK_COMMENTS = """
+from contextlib import suppress
+
+# ANALYSIS_OK[best-effort]: cleanup only;
+# a leftover temp file is harmless
+# (see cleanup policy)
+with suppress(OSError):
+    # first comment
+    # second comment
+    os.remove(tmp)
+"""
+
+BAD_EXIT_STACK = """
+import contextlib
+
+with contextlib.ExitStack() as stack:
+    stack.enter_context(contextlib.suppress(Exception))
+    x()
+"""
+
+BAD_BOUND_TO_NAME = """
+from contextlib import suppress
+
+ignore = suppress(Exception)
+
+def load():
+    with ignore:
+        load_counts()
+"""
+
+GOOD_RELATIVE_CONTEXTLIB = """
+from .contextlib import suppress
+
+with suppress():
+    x()
+"""
+
+
+def test_suppress_context_waiver_inside_block_after_multiline_header(has_finding):
+    assert not has_finding(WAIVED_INSIDE_MULTILINE_HEADER, RULE)
+
+
+def test_suppress_context_waiver_trailing_closing_paren(has_finding):
+    assert not has_finding(WAIVED_TRAILING_CLOSING_PAREN, RULE)
+
+
+def test_suppress_context_waiver_above_with_despite_block_comments(has_finding):
+    assert not has_finding(WAIVED_ABOVE_WITH_LEADING_BLOCK_COMMENTS, RULE)
+
+
+def test_suppress_context_reported_on_with_line(findings_for):
+    (f,) = findings_for(BAD_FROM_IMPORT, RULE)
+    assert f.line == 4  # the `with` line
+
+
+def test_suppress_context_flags_exit_stack_enter_context(has_finding):
+    assert has_finding(BAD_EXIT_STACK, RULE)
+
+
+def test_suppress_context_flags_suppress_bound_to_name(findings_for):
+    (f,) = findings_for(BAD_BOUND_TO_NAME, RULE)
+    assert f.line == 4  # where the suppressor is created
+
+
+def test_suppress_context_passes_relative_contextlib_import(has_finding):
+    assert not has_finding(GOOD_RELATIVE_CONTEXTLIB, RULE)

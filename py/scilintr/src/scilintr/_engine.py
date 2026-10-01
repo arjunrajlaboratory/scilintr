@@ -37,7 +37,7 @@ def lint_code(
 
     if respect_waivers:
         waivers = find_waivers(source)
-        findings = [f for f in findings if not is_waived(f.line, waivers)]
+        findings = [f for f in findings if not is_waived(f.line, waivers, end_line=f.waiver_end)]
 
     return findings
 
@@ -97,7 +97,7 @@ def lint_paths(
         }
 
         def _is_waived(f: Finding) -> bool:
-            return is_waived(f.line, per_file_waivers.get(f.filename, []))
+            return is_waived(f.line, per_file_waivers.get(f.filename, []), end_line=f.waiver_end)
 
         findings = [f for f in findings if not _is_waived(f)]
 
