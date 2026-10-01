@@ -50,7 +50,7 @@ from scitexlintr._parser import line_col_lookup
 
 NONPROSE_TAGS = frozenset({
     "head", "script", "style", "code", "pre", "kbd", "samp", "math",
-    "template", "textarea", "noscript", "title", "time",
+    "template", "textarea", "noscript", "time",
 })
 VOID_TAGS = frozenset({
     "area", "base", "br", "col", "embed", "hr", "img", "input", "link",
@@ -257,9 +257,11 @@ class _Scanner(HTMLParser):
             # An inline <svg> is a drawing; its data live in attributes no prose
             # rule reads. Outside a registered region it must be a declared
             # diagram, an interactive figure's own chart, or an icon.
+            # (aria-hidden alone proves nothing: it hides content from assistive
+            # technology, not from readers.) An icon is an SVG inside a control.
             fig = self._ancestor(lambda e: e.tag == "figure")
             exempt = (
-                (attrs.get("aria-hidden") or "").strip().lower() == "true"
+                self._ancestor(lambda e: e.tag in ("button", "a")) is not None
                 or (fig is not None and ("data-sci-diagram" in fig.attrs or "data-sci-interactive" in fig.attrs))
             )
             self.media.append(MediaRef(start, "svg", "", self.region == "sci-media", False, exempt))

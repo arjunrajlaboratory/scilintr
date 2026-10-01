@@ -108,3 +108,18 @@ def test_a_bare_svg_plot_outside_a_figure_is_unregistered_media():
     assert lint_html(page(icon), manifest=m) == []
     diagram = '<figure data-sci-diagram><svg viewBox="0 0 4 4"><text>Input</text></svg></figure>'
     assert lint_html(page(diagram), manifest=m) == []
+
+
+# -- Codex re-review on 00b92e2 --------------------------------------------------
+
+def test_aria_hidden_alone_does_not_exempt_a_plot_but_a_control_icon_is_exempt():
+    m = parse_manifest({"numbers": []})
+    plot = '<div><svg aria-hidden="true" viewBox="0 0 100 100"><path d="M0 0L100 100"/></svg></div>'
+    assert rules(lint_html(page(plot), manifest=m)) == ["unfingerprinted-figure"]
+    icon = '<a href="#x"><svg viewBox="0 0 16 16"><path d="M4 2v11l9-5z"/></svg>Next</a>'
+    assert lint_html(page(icon), manifest=m) == []
+
+
+def test_svg_title_text_in_a_diagram_is_prose():
+    body = "<figure data-sci-diagram><svg><title>Result 999</title><text>Input</text></svg></figure>"
+    assert rules(lint_html(page(body))) == ["unsourced-numeric-token"]
