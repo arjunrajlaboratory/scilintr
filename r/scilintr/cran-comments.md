@@ -10,28 +10,26 @@ floors, and shadow-overwrite of sourced helpers).
 ## Test environments
 
 * local macOS, R 4.6.0 (2026-04-24)
-* win-builder, R-devel and R-release (via `devtools::check_win_*`)
 
 ## R CMD check results
 
-0 errors | 0 warnings | 1 note
+`R CMD check --as-cran scilintr_0.1.1.tar.gz` on the built tarball:
 
-On win-builder (R-devel) the only NOTE is:
+```
+Status: 2 NOTEs
+```
+
+0 errors | 0 warnings | 2 notes
+
+Both NOTEs are benign:
 
 * **checking CRAN incoming feasibility ... NOTE** — "New submission"
-  (with the maintainer line), as expected for a first-time submission. It
-  also lists two "possibly misspelled words" in DESCRIPTION, both of which
-  are intentional and spelled correctly:
-    * *agentic* — i.e. "agentic coding workflows" (relating to AI coding
-      agents); an established term of art in this domain.
-    * *eps* — epsilon, the numerical-tolerance floor referred to by
-      "magic-eps floors".
-
-The local `R CMD check --as-cran` (macOS, R 4.6.0) additionally emits a
-"checking HTML version of manual ... NOTE" ("'tidy' doesn't look like
-recent enough HTML Tidy"). That is a property of the local machine's HTML
-Tidy version, not of the package, and does not occur on win-builder or the
-CRAN build machines.
+  (with the maintainer line). This is the expected note for a first-time
+  submission.
+* **checking HTML version of manual ... NOTE** — "Skipping checking HTML
+  validation: 'tidy' doesn't look like recent enough HTML Tidy." This is
+  a property of the local check machine's HTML Tidy version, not of the
+  package; it does not occur on the CRAN build machines.
 
 `R CMD check` also ran the examples (including `--run-donttest`) and the
 `testthat` suite, both of which passed cleanly.
