@@ -17,6 +17,7 @@ from scilintr._rules.silent_default_rebind import rule as silent_default_rebind
 from scilintr._rules.silent_fallback_return import rule as silent_fallback_return
 from scilintr._rules.silent_pass import rule as silent_pass
 from scilintr._rules.silent_stub_fallback import rule as silent_stub_fallback
+from scilintr._rules.suppress_context import rule as suppress_context
 from scilintr._rules.synthetic_data_generation import rule as synthetic_data_generation
 from scilintr._rules.unannotated_filter import rule as unannotated_filter
 from scilintr._rules.unannotated_missingness import rule as unannotated_missingness
@@ -42,6 +43,7 @@ ALL_RULES: list[Rule] = [
     silent_stub_fallback,
     silent_fallback_return,
     silent_default_rebind,
+    suppress_context,
     return_none_on_missing_input,
     positional_metadata_access,
     magic_threshold,
