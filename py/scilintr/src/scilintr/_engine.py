@@ -11,6 +11,13 @@ from scilintr._rules import ALL_CROSS_FILE_RULES, ALL_RULES
 from scilintr._waivers import find_waivers, is_waived
 
 
+def _select_rules(rules: list[str] | None) -> list:
+    """All default rules, or exactly the named ones (which may include opt-in rules)."""
+    if rules is None:
+        return [r for r in ALL_RULES if not r.opt_in]
+    return [r for r in ALL_RULES if r.code in rules]
+
+
 def lint_code(
     source: str,
     *,
@@ -26,7 +33,7 @@ def lint_code(
     """
     tree = ast.parse(source, filename=filename)
 
-    selected = ALL_RULES if rules is None else [r for r in ALL_RULES if r.code in rules]
+    selected = _select_rules(rules)
 
     findings: list[Finding] = []
     for rule in selected:
@@ -73,7 +80,7 @@ def lint_paths(
         parsed[str(path)] = (tree, source)
 
     # Per-file rules
-    selected = ALL_RULES if rules is None else [r for r in ALL_RULES if r.code in rules]
+    selected = _select_rules(rules)
     for filename, (tree, source) in parsed.items():
         for rule in selected:
             for f in rule.check(tree, source, filename):

@@ -12,6 +12,7 @@ from scilintr._rules.label_in_blind_stage import rule as label_in_blind_stage
 from scilintr._rules.magic_threshold import rule as magic_threshold
 from scilintr._rules.positional_metadata_access import rule as positional_metadata_access
 from scilintr._rules.positional_sample_alignment import rule as positional_sample_alignment
+from scilintr._rules.return_none_on_empty_input import rule as return_none_on_empty_input
 from scilintr._rules.return_none_on_missing_input import rule as return_none_on_missing_input
 from scilintr._rules.silent_default_rebind import rule as silent_default_rebind
 from scilintr._rules.silent_fallback_return import rule as silent_fallback_return
@@ -43,6 +44,7 @@ ALL_RULES: list[Rule] = [
     silent_fallback_return,
     silent_default_rebind,
     return_none_on_missing_input,
+    return_none_on_empty_input,
     positional_metadata_access,
     magic_threshold,
     unchecked_merge,

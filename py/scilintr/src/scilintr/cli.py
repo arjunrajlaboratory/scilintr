@@ -5,6 +5,7 @@ Usage:
     python -m scilintr <path> [<path>...]
     python -m scilintr --rules broad-exception,unchecked-merge <path>
     python -m scilintr --no-waivers <path>   # audit mode
+    python -m scilintr --enable return-none-on-empty-input <path>   # defaults + opt-in
 
 Exit code is 1 if any findings are produced, 0 otherwise.
 
@@ -19,6 +20,7 @@ import argparse
 import sys
 
 from scilintr import lint_paths
+from scilintr._rules import ALL_RULES
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -28,7 +30,13 @@ def main(argv: list[str] | None = None) -> int:
         "--rules",
         type=str,
         default=None,
-        help="comma-separated rule codes to restrict to (default: all rules)",
+        help="comma-separated rule codes to restrict to (default: all non-opt-in rules)",
+    )
+    parser.add_argument(
+        "--enable",
+        type=str,
+        default=None,
+        help="comma-separated opt-in rule codes to run in addition to the selected rules",
     )
     parser.add_argument(
         "--no-waivers",
@@ -43,6 +51,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     rules = [r.strip() for r in args.rules.split(",")] if args.rules else None
+    if args.enable:
+        base = rules if rules is not None else [r.code for r in ALL_RULES if not r.opt_in]
+        rules = base + [r.strip() for r in args.enable.split(",")]
 
     findings = lint_paths(
         args.paths,

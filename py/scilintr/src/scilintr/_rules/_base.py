@@ -23,6 +23,8 @@ CrossFileCheckFn = Callable[[dict[str, tuple[ast.AST, str]]], list[Finding]]
 class Rule:
     code: str
     check: CheckFn
+    # Opt-in rules are higher-FP; they run only when named in ``rules=``/``--rules``.
+    opt_in: bool = False
 
 
 @dataclass(frozen=True)
