@@ -74,9 +74,16 @@ def _check_html(doc, manifest: Manifest) -> list[Finding]:
     findings: list[Finding] = []
     for w in doc.wrappers:
         entry = manifest.resolve_number(w.key)
-        if entry is None or entry.value is None:
+        if entry is None:
             continue  # unknown ids belong to unknown-value-id
         line, col = doc.lookup(w.inner_start)
+        if entry.value is None:
+            # Wrapper text is excluded from prose, so a span backed by no value
+            # would otherwise vouch for any number typed into it.
+            findings.append(Finding(rule=CODE, line=line, col=col, severity="error",
+                                    message=f"id={entry.id} has no value in the manifest; "
+                                            "the rendered text cannot be checked"))
+            continue
         precision = parse_precision(w.precision)
         if isinstance(precision, str):
             findings.append(Finding(rule=CODE, line=line, col=col, severity="error",

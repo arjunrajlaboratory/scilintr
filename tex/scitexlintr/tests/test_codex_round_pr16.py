@@ -69,3 +69,23 @@ def test_keyword_led_arrays_are_literals_not_index_accesses(js):
 def test_identifier_led_brackets_are_still_index_accesses():
     js = "var v = [cols[0], cols[1], cols[2], returns[3], x[4], y[5], z[6]];"
     assert lint_html(page(script(js))) == []
+
+
+# -- Codex re-review on 9e5e37c --------------------------------------------------
+
+def test_wrapper_backed_by_a_null_value_is_an_error():
+    m = parse_manifest({"numbers": [{"id": "result", "value": None}, {"id": "missing"}]})
+    found = lint_html(page('<p><span data-sci-val="result">99.9</span> and <span data-sci-val="missing">3</span></p>'), manifest=m)
+    assert rules(found) == ["snapshot-mismatch", "snapshot-mismatch"]
+    assert all("no value" in f.message for f in found)
+
+
+def test_digits_written_as_character_references_are_prose_digits():
+    assert "handwritten-numeric-claim" in rules(lint_html(page("<p>We saw n = &#49;&#50; cells.</p>")))
+    assert lint_html(page("<p>A range&#8211;wide dash.</p>")) == []  # a non-digit reference adds no digits
+
+
+def test_export_default_array_is_a_literal_but_a_property_index_is_not():
+    assert rules(lint_html(page(script("export default [1, 2, 3, 4, 5, 6];")))) == ["script-data-literal"]
+    js = "var v = [obj.default[0], obj.default[1], o.return[2], a[3], b[4], c[5]];"
+    assert lint_html(page(script(js))) == []

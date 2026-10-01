@@ -13,8 +13,9 @@ Two consequences worth knowing:
   tokens), which is what a reader sees.
 * Character references are decoded in place and padded with spaces:
   ``&lt;`` becomes ``<`` + three spaces, so the threshold rules see
-  ``p &lt; 0.05`` as ``p <    0.05``. Numeric references (``&#8211;``)
-  therefore never leak their digits into the numeric rules.
+  ``p &lt; 0.05`` as ``p <    0.05``. A reference contributes the character
+  it renders, so ``&#8211;`` adds a dash (never the digits of its code) and
+  ``&#49;`` adds the digit 1.
 
 Non-prose regions: ``<head>``, ``<script>``, ``<style>``, ``<code>``,
 ``<pre>``, ``<kbd>``, ``<samp>``, ``<math>``, ``<template>``,
@@ -375,8 +376,6 @@ class _Scanner(HTMLParser):
         decoded = html.unescape(self.source[start:end])
         ch = decoded[:1] if decoded else " "
         if ch.isspace() or ch == " ":
-            ch = " "
-        if ch.isdigit():
             ch = " "
         self.out[start] = ch
         for j in range(start, end):

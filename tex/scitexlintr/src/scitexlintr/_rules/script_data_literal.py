@@ -37,9 +37,10 @@ _INDEX_OPENER_RE = re.compile(r"[\w$)\]]\s*$")
 # index access: `return [1, 2, 3]`, `yield [...]`, `case [...]`.
 _KEYWORDS_BEFORE_LITERAL = frozenset({
     "return", "yield", "await", "typeof", "case", "in", "of", "new", "delete",
-    "void", "throw", "else", "do", "instanceof",
+    "void", "throw", "else", "do", "instanceof", "default",
 })
-_LAST_WORD_RE = re.compile(r"([A-Za-z_$][\w$]*)\s*$")
+# The keyword must stand alone: after a "." it is a property (obj.default[0]).
+_LAST_WORD_RE = re.compile(r"(?<![\w$.])([A-Za-z_$][\w$]*)\s*$")
 
 
 def _is_index_opener(before: str) -> bool:

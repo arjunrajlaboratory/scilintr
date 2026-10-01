@@ -74,8 +74,11 @@
   `phrase_pattern`. Existing TeX reports whose forbidden aliases wrap across
   a source line will now see those `forbidden-alias` errors.
 - `script-data-literal` treats a bracket after `return`, `yield`, `await`,
-  `typeof`, `case` (and similar keywords) as an array literal, not an index
-  access.
+  `typeof`, `case`, `export default` (and similar keywords) as an array
+  literal, not an index access.
+- An HTML value span whose manifest entry has no value is an error (the
+  span's text is excluded from prose, so it would otherwise vouch for any
+  number); a character reference that encodes a digit counts as that digit.
 - HTML port of the end-to-end corpus (`tests/data/report.html`).
 - CI workflow for this package (`.github/workflows/tex-check.yaml`).
 
