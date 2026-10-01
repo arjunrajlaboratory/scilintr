@@ -89,3 +89,22 @@ def test_export_default_array_is_a_literal_but_a_property_index_is_not():
     assert rules(lint_html(page(script("export default [1, 2, 3, 4, 5, 6];")))) == ["script-data-literal"]
     js = "var v = [obj.default[0], obj.default[1], o.return[2], a[3], b[4], c[5]];"
     assert lint_html(page(script(js))) == []
+
+
+# -- Codex re-review on 1f39026 ------------------------------------------------
+
+def test_live_readouts_are_exempt_only_inside_interactive_figures():
+    assert "unsourced-numeric-token" in rules(lint_html(page("<p>Result: <output data-sci-live>999</output></p>")))
+    inside = ('<figure data-sci-interactive="ts"><output data-sci-live>999</output>'
+              '<script type="application/json" data-sci-data="d">{}</script></figure>')
+    assert "unsourced-numeric-token" not in rules(lint_html(page(inside)))
+
+
+def test_a_bare_svg_plot_outside_a_figure_is_unregistered_media():
+    m = parse_manifest({"numbers": []})
+    found = lint_html(page('<div><svg viewBox="0 0 100 100"><path d="M0 0L100 100"/></svg></div>'), manifest=m)
+    assert rules(found) == ["unfingerprinted-figure"]
+    icon = '<button><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2v11l9-5z"/></svg>Present</button>'
+    assert lint_html(page(icon), manifest=m) == []
+    diagram = '<figure data-sci-diagram><svg viewBox="0 0 4 4"><text>Input</text></svg></figure>'
+    assert lint_html(page(diagram), manifest=m) == []

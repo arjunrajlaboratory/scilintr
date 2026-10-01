@@ -153,7 +153,7 @@ def _check_html(doc, manifest: Manifest) -> list[Finding]:
             )
 
     for m in doc.media:
-        if m.in_registered_figure:
+        if m.in_registered_figure or m.exempt:
             continue
         if m.tag == "canvas" and m.in_interactive_figure:
             continue  # a custom interactive kind draws here from registered data

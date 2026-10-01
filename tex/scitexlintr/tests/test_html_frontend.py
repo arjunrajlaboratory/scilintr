@@ -265,15 +265,11 @@ def test_manifest_without_sha_accepts_any_registered_media(hlint):
 
 
 def test_unknown_figure_id_is_flagged(hlint):
-    assert rules_of(hlint('<figure data-sci-fig="nope"><svg></svg></figure>')) == [
-        "unfingerprinted-figure"
-    ]
+    assert set(rules_of(hlint('<figure data-sci-fig="nope"><svg></svg></figure>'))) == {"unfingerprinted-figure"}
 
 
 def test_undeclared_figure_is_flagged(hlint):
-    assert rules_of(hlint("<figure><svg></svg><figcaption>Plot.</figcaption></figure>")) == [
-        "unfingerprinted-figure"
-    ]
+    assert set(rules_of(hlint("<figure><svg></svg><figcaption>Plot.</figcaption></figure>"))) == {"unfingerprinted-figure"}
 
 
 def test_diagram_figure_is_allowed_and_its_text_is_prose(hlint):

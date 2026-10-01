@@ -106,6 +106,7 @@ class MediaRef:
     src: str
     in_registered_figure: bool   # inside a registered figure's sci-media region
     in_interactive_figure: bool = False
+    exempt: bool = False         # a root <svg> that is a diagram, a runtime chart, or an aria-hidden icon
 
 
 @dataclass(frozen=True)
@@ -252,6 +253,16 @@ class _Scanner(HTMLParser):
             fig = self._ancestor(lambda e: e.tag == "figure")
             interactive = fig is not None and "data-sci-interactive" in fig.attrs
             self.media.append(MediaRef(start, tag, src, self.region == "sci-media", interactive))
+        if tag == "svg" and not self._ancestor(lambda e: e.tag == "svg"):
+            # An inline <svg> is a drawing; its data live in attributes no prose
+            # rule reads. Outside a registered region it must be a declared
+            # diagram, an interactive figure's own chart, or an icon.
+            fig = self._ancestor(lambda e: e.tag == "figure")
+            exempt = (
+                (attrs.get("aria-hidden") or "").strip().lower() == "true"
+                or (fig is not None and ("data-sci-diagram" in fig.attrs or "data-sci-interactive" in fig.attrs))
+            )
+            self.media.append(MediaRef(start, "svg", "", self.region == "sci-media", False, exempt))
 
         if tag == "script" and attrs.get("data-sci-data"):
             fig = self._ancestor(lambda e: e.tag == "figure")
@@ -263,7 +274,13 @@ class _Scanner(HTMLParser):
 
         parent_nonprose = self._in_nonprose()
         nonprose = parent_nonprose or tag in NONPROSE_TAGS
-        if "data-sci-val" in attrs or "data-sci-text" in attrs or "data-sci-live" in attrs:
+        if "data-sci-val" in attrs or "data-sci-text" in attrs:
+            nonprose = True
+        if "data-sci-live" in attrs and self._ancestor(
+            lambda e: e.tag == "figure" and "data-sci-interactive" in e.attrs
+        ):
+            # Runtime readouts are exempt only where a registered interactive
+            # figure writes them; elsewhere their text is ordinary prose.
             nonprose = True
         self.stack.append(_Elem(tag, attrs, start, open_end, nonprose))
 
