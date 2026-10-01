@@ -46,7 +46,15 @@ def find_waivers(source: str) -> list[Waiver]:
     return waivers
 
 
-def is_waived(finding_line: int, waivers: list[Waiver], window: int = DEFAULT_WINDOW) -> bool:
+def is_waived(
+    finding_line: int,
+    waivers: list[Waiver],
+    window: int = DEFAULT_WINDOW,
+    end_line: int | None = None,
+) -> bool:
     # Waivers are forward-looking: a waiver on line L suppresses findings on lines [L, L+window].
     # Same-line covers inline trailing comments (`except Exception:  # ANALYSIS_OK[...]: ...`).
-    return any(0 <= finding_line - w.line <= window for w in waivers)
+    # A finding spanning lines up to `end_line` (a multi-line header plus the
+    # block's opening) is also waived by a waiver anywhere inside that span.
+    last = finding_line if end_line is None else max(end_line, finding_line)
+    return any(finding_line - window <= w.line <= last for w in waivers)
