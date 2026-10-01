@@ -416,3 +416,40 @@ def test_input_forms_followed_for_definitions(tmp_path, inp):
     main = tmp_path / "main.tex"
     main.write_text(inp + "\n\\begin{document}\\end{document}\n")
     assert "LocalVal" in defined_macros_in_file(main)
+
+
+# -------------------- codex review round 2 --------------------
+
+
+def test_display_text_whitespace_is_meaningful():
+    m = parse_manifest({"numbers": [{"id": "sig", "value": "x", "display": "not significant"},
+                                    {"id": "ci", "value": 0.95, "display": r"95\% CI"}]})
+    assert "snapshot-mismatch" in rules_of(r"\SciVal{\SIG}{notsignificant} a.", manifest=m)
+    assert "snapshot-mismatch" in rules_of(r"\SciVal{\CI}{95\%CI} a.", manifest=m)
+    assert "snapshot-mismatch" not in rules_of(r"\SciVal{\CI}{95\%  CI} a.", manifest=m)
+
+
+@pytest.mark.parametrize("lit", [r"97\%", r"97.0\%", r"97.00\%"])
+def test_rendered_percent_trailing_zero_variants_are_errors(lit):
+    m = parse_manifest({"numbers": [
+        {"id": "n_pairs", "value": 97},
+        {"id": "frac", "value": 0.97, "unit": "percent", "precision": 1},
+    ]})
+    found = [f for f in lint(rf"Coverage was {lit} of claims.", manifest=m) if f.rule == "raw-generated-value"]
+    assert [(f.severity, "id=frac" in f.message) for f in found] == [("error", True)]
+
+
+@pytest.mark.parametrize("end", ["% ANALYSIS_OK_END[]", "% ANALYSIS_OK_END[a,]", "% ANALYSIS_OK_END[a"])
+def test_malformed_named_end_does_not_close_region(end):
+    assert find_waivers(f"% ANALYSIS_OK_BEGIN[a]: why\nx\n{end}\n") == []
+
+
+@pytest.mark.parametrize("lit", [r"96.5\,\%", r"96.5~\%", r"96.5\thinspace\%"])
+def test_spaced_rendered_percent_not_also_unsourced(lit):
+    rules = rules_of(rf"Dated {lit} of claims.")
+    assert "raw-generated-value" in rules
+    assert "unsourced-numeric-token" not in rules
+
+
+def test_spaced_typographic_percent_not_unsourced():
+    assert "unsourced-numeric-token" not in rules_of(r"About 50\,\% of claims.", manifest=None)

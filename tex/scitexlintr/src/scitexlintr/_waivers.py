@@ -82,7 +82,9 @@ def _event(body: str, line: int) -> _Event | None:
             return _Event(line, kind, _split(m.group("categories")),
                           " ".join(m.group("explanation").split()))
     m = _END_BODY_RE.match(body)
-    if m:
+    # A bracket after END must hold a valid rule list (``END[]``, ``END[a,]``,
+    # ``END[a`` are malformed, not bare ENDs): fail safe, close nothing.
+    if m and not (m.group("categories") is None and body[m.end():].lstrip().startswith("[")):
         cats = m.group("categories")
         return _Event(line, "end", _split(cats) if cats else ())
     return None

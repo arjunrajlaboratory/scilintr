@@ -136,20 +136,24 @@ def tex_snapshot_matches_rendered(snapshot: str, rendered: str) -> bool:
     """True if ``snapshot`` spells the same rendered TeX as ``rendered``,
     ignoring TeX spacing (``96.5\\,\\%``, ``96.5~\\%``) and, for a number,
     trailing zeros (``96.50\\%``)."""
-    snap = _TEX_SPACING_RE.sub("", snapshot)
     want = _TEX_SPACING_RE.sub("", rendered)
-    if snap == want:
-        return True
     suffix = "\\%" if want.endswith("\\%") else ""
+    want_n = want[: len(want) - len(suffix)]
+    if not _PLAIN_NUMBER_RE.fullmatch(want_n):
+        # A text ``display`` ("not significant", "95\\% CI"): its spaces are
+        # meaningful; only runs of whitespace collapse.
+        return " ".join(snapshot.split()) == " ".join(rendered.split())
+    snap = _TEX_SPACING_RE.sub("", snapshot)
     if suffix and not snap.endswith(suffix):
         return False
-    snap_n, want_n = snap[: len(snap) - len(suffix)], want[: len(want) - len(suffix)]
-    if not (_PLAIN_NUMBER_RE.fullmatch(snap_n) and _PLAIN_NUMBER_RE.fullmatch(want_n)):
+    snap_n = snap[: len(snap) - len(suffix)]
+    if not _PLAIN_NUMBER_RE.fullmatch(snap_n):
         return False
-    return _drop_trailing_zeros(snap_n) == _drop_trailing_zeros(want_n)
+    return normalize_number(snap_n) == normalize_number(want_n)
 
 
-def _drop_trailing_zeros(number: str) -> str:
+def normalize_number(number: str) -> str:
+    """``97.00`` → ``97``, ``96.50`` → ``96.5``: trailing fractional zeros dropped."""
     return number.rstrip("0").rstrip(".") if "." in number else number
 
 

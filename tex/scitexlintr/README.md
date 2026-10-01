@@ -182,7 +182,7 @@ with `data-precision="0"` (a slide showing `95%` where the report shows
 in prose) is a `raw-generated-value`, in TeX (`95.4\%`) as in HTML — for
 fractional percents only. A rounded decimal (`1.5`) is not evidence of one
 value (many literals round to it) and is left to `unsourced-numeric-token`.
-An integer percent (`95%`) is not checked at all: typographic percentages are
+Trailing-zero variants count as the same rendered form (`97%` and `97.00%` for a value that renders as `97.0%`). An integer percent that rounds a different value (`95%` for `95.4%`) is not checked at all: typographic percentages are
 skipped by `unsourced-numeric-token`, so wrap such values in spans. String values match on word boundaries: `WT`
 is not raw inside `WTF1`.
 

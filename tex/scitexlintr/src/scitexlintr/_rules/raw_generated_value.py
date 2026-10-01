@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import re
 
-from scitexlintr._display import derived_forms
+from scitexlintr._display import derived_forms, normalize_number
 from scitexlintr._doc import TexDoc, phrase_pattern, skip_unit_space
 from scitexlintr._finding import Finding
 from scitexlintr._manifest import Manifest, values_equal_as_snapshot
@@ -88,19 +88,19 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
     # written "95.4%", so that literal is as raw as "0.9535" would be.
     by_number: dict[str, list] = {}
     for entry, number, suffix in derived_forms(manifest, getattr(doc, "fmt", "tex")):
-        by_number.setdefault(number, []).append((entry, suffix))
+        by_number.setdefault(normalize_number(number), []).append((entry, suffix, number))
     for m in _NUMERIC_TOKEN_RE.finditer(doc.stripped, doc.body_start, doc.body_end) if by_number else ():
-        number = m.group(0)
+        number = normalize_number(m.group(0))
         if number not in by_number or not doc.in_prose(m.start()) or m.start() in seen_offsets:
             continue
         after = skip_unit_space(doc.stripped, m.end(), getattr(doc, "fmt", "tex"))
-        for entry, suffix in by_number[number]:
+        for entry, suffix, canonical in by_number[number]:
             if suffix and not doc.stripped.startswith(suffix, after):
                 continue
             seen_offsets.add(m.start())
-            label = number + suffix
+            label = m.group(0) + suffix
             # HTML spans show the rendered form; a TeX \SciVal snapshot is the stored value.
-            snapshot = label if getattr(doc, "fmt", "tex") == "html" else entry.value_repr
+            snapshot = canonical + suffix if getattr(doc, "fmt", "tex") == "html" else entry.value_repr
             line, col = doc.lookup(m.start())
             findings.append(
                 Finding(
