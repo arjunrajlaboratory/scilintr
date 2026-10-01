@@ -1,0 +1,192 @@
+<!doctype html>
+<!--
+  scitexlintr — HTML end-to-end test corpus.
+
+  Marker convention used by tests/test_corpus.py (HTML flavor):
+    The comment IMMEDIATELY ABOVE a body line either says
+      <!-- LINT-EXPECT[rule-a,rule-b] -->  -> all listed rules MUST fire on next line
+      <!-- LINT-OK -->                     -> NO finding may fire on next line
+
+  Each case mirrors the same-named case in report.tex, so the two frontends
+  are held to the same expectations. HTML-only rules are grouped at the end.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Corpus report 2026 with 999 in the title</title>
+<style>.fig { max-width: 48rem; } /* 317 in CSS must not fire */</style>
+<script>const nSamples = 48; if (p < 0.01) { console.log(317); }</script>
+</head>
+<body>
+<h2>Results</h2>
+
+<!-- ===== snapshot-mismatch ===== -->
+
+<!-- LINT-EXPECT[snapshot-mismatch] -->
+<p>We analyzed <span data-sci-val="diff-expr.n_samples">47</span> cells in the cohort A subset.</p>
+
+<!-- LINT-OK -->
+<p>We analyzed <span data-sci-val="diff-expr.n_samples">48</span> cells in the main cohort.</p>
+
+<!-- LINT-EXPECT[snapshot-mismatch] -->
+<p>For the <span data-sci-text="diff-expr.contrast_phrase">control versus treated</span> comparison the sign flips.</p>
+
+<!-- LINT-OK -->
+<p>For the <span data-sci-text="contrast_phrase">treated versus control</span> comparison the sign agrees.</p>
+
+<!-- ===== raw-generated-value ===== -->
+
+<!-- LINT-EXPECT[raw-generated-value] -->
+<p>The 317 differentially expressed genes cluster into three groups.</p>
+
+<!-- LINT-EXPECT[raw-generated-value] -->
+<p>We focused on treated versus control comparisons across all batches.</p>
+
+<!-- LINT-OK -->
+<p>We observed <span data-sci-val="n_de_genes">317</span> differentially expressed genes overall.</p>
+
+<!-- ===== bare-generated-macro (TeX only: never fires in HTML) ===== -->
+
+<!-- LINT-OK -->
+<p>Without wrapper, \NSamples samples were retained for analysis.</p>
+
+<!-- ===== unwrapped-threshold ===== -->
+
+<!-- LINT-EXPECT[unwrapped-threshold,raw-generated-value] -->
+<p>We used FDR &lt; 0.05 as the differential-expression cutoff.</p>
+
+<!-- LINT-OK -->
+<p>We loosened to FDR &lt; <span data-sci-val="fdr_threshold">0.05</span> in a sensitivity sweep.</p>
+
+<!-- ===== unfingerprinted-figure ===== -->
+
+<!-- LINT-OK -->
+<figure data-sci-fig="volcano_de" data-sha256="b4e3c9d2aaaa1111bbbb2222cccc3333dddd4444eeee5555ffff66667777" data-content-sha256="26bc1a5f47661542f483ed14154f790cb5c457465f84e2bc880bbeb238a6c62a"><div class="sci-media"><!-- sci-media --><svg viewBox="0 0 4 4"><text>0.05</text></svg><!-- /sci-media --></div><figcaption>Volcano plot of differential expression.</figcaption></figure>
+
+<!-- LINT-OK -->
+<p><img alt="QC summary" src="figures/qc_summary.png"></p>
+
+<!-- LINT-EXPECT[unfingerprinted-figure] -->
+<p><img alt="Heatmap" src="figures/heatmap.png"></p>
+
+<!-- LINT-EXPECT[unfingerprinted-figure] -->
+<figure data-sci-fig="volcano_de" data-sha256="0000000000000000000000000000000000000000000000000000000000000000" data-content-sha256="b12e0d83ce2357d80b89c57694814d0a3abdaf8c40724f2049af8b7f01b7812b"><!-- sci-media --><svg></svg><!-- /sci-media --></figure>
+
+<!-- LINT-EXPECT[unfingerprinted-figure] -->
+<figure><svg></svg><figcaption>An undeclared plot.</figcaption></figure>
+
+<!-- LINT-OK -->
+<figure data-sci-diagram><svg viewBox="0 0 4 4"><text>Input</text></svg><figcaption>Pipeline schematic.</figcaption></figure>
+
+<!-- ===== unsourced-numeric-token ===== -->
+
+<!-- LINT-EXPECT[unsourced-numeric-token] -->
+<p>The amplicon coverage was 99.9 percent across replicates.</p>
+
+<!-- ===== overloaded-term-no-warning ===== -->
+
+<!-- LINT-EXPECT[overloaded-term-no-warning] -->
+<p>The BCLRT score was elevated in tumor samples.</p>
+
+<p>Note that BCLRT is not a Wilks-sense LRT; threshold 10 corresponds to Wilks 20.</p>
+
+<!-- LINT-OK -->
+<p>A second mention of BCLRT is fine because the warning was issued above.</p>
+
+<!-- ===== forbidden-alias ===== -->
+
+<!-- LINT-EXPECT[forbidden-alias] -->
+<p>The accuracy was <span data-sci-val="exact_accuracy">0.973</span> on the validation split.</p>
+
+<!-- LINT-OK -->
+<p>The exact match accuracy was <span data-sci-val="exact_accuracy">0.973</span> on the held-out set.</p>
+
+<!-- LINT-EXPECT[forbidden-alias] -->
+<p>There were many total cells in the cohort, far more than after filtering.</p>
+
+<!-- ===== handwritten-numeric-claim ===== -->
+
+<!-- LINT-EXPECT[handwritten-numeric-claim] -->
+<p>We saw n = 23 in earlier work by Bagamery.</p>
+
+<!-- LINT-EXPECT[handwritten-numeric-claim] -->
+<p>With p = 1e-8, the result was strongly significant.</p>
+
+<!-- LINT-EXPECT[handwritten-numeric-claim] -->
+<p>We measured r = 0.82 across biological replicates.</p>
+
+<!-- ANALYSIS_OK[handwritten-numeric-claim]: footnote citing Bagamery 2024 N=23, not a result of this analysis -->
+<!-- LINT-OK -->
+<p>We mentioned N = 23 cells in passing, as in earlier work.</p>
+
+<!-- ===== magic-tex-threshold ===== -->
+
+<!-- LINT-EXPECT[magic-tex-threshold] -->
+<p>Using a relaxed cutoff &lt; 0.01, we found more candidates.</p>
+
+<!-- LINT-EXPECT[magic-tex-threshold] -->
+<p>Using a relaxed cutoff ≤ 0.01, we found more candidates.</p>
+
+<!-- LINT-OK -->
+<p>We then re-tightened to FDR &lt; <span data-sci-val="fdr_threshold">0.05</span> everywhere.</p>
+
+<!-- ===== Edge cases the scanner must NOT trip over ===== -->
+
+<!-- LINT-OK -->
+<p class="n-999" data-count="999" title="999">Attribute values are not prose.</p>
+
+<!-- LINT-OK -->
+<p>We recovered roughly 50% of the input reads, which is acceptable.</p>
+
+<!-- LINT-OK -->
+<p>Across <span data-sci-val="diff-expr:n_replicates">12</span> biological replicates the variance was low.</p>
+
+<!-- LINT-EXPECT[snapshot-mismatch] -->
+<p>Across <span data-sci-val="n_replicates">11</span> biological replicates the variance was low.</p>
+
+<!-- LINT-OK -->
+<p>See Section 4.2 for the QC pipeline, and Figure 3 for the volcano.</p>
+
+<!-- LINT-OK -->
+<p>After filtering, <span data-sci-val="n_genes_after_filtering">15,122</span> genes remained.</p>
+
+<!-- LINT-OK -->
+<p>Code such as <code>n = 48</code> and <kbd>p &lt; 0.01</kbd> is not prose; neither is a range&#8211;wide dash.</p>
+
+<!-- ===== HTML-only: unknown-value-id ===== -->
+
+<!-- LINT-EXPECT[unknown-value-id] -->
+<p>We analyzed <span data-sci-val="n_smaples">48</span> cells after a typo.</p>
+
+<!-- ===== HTML-only: unfingerprinted-data ===== -->
+
+<!-- LINT-OK -->
+<figure data-sci-interactive="growth"><script type="application/json" data-sci-data="growth_series" data-sha256="9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f" data-content-sha256="76dcef5266baa88bd58f63e2ddf8406f5cdb8b81030f914fc41b91b64ba3a382">{"t": [0, 1, 2]}</script><output data-sci-live>1234</output><figcaption>Growth over time.</figcaption></figure>
+
+<!-- LINT-EXPECT[unfingerprinted-data] -->
+<figure data-sci-interactive="growth"><script>draw([0, 1, 2]);</script><figcaption>Growth from hand-typed data.</figcaption></figure>
+
+<!-- LINT-EXPECT[unfingerprinted-data] -->
+<figure data-sci-interactive="growth"><script type="application/json" data-sci-data="growth_series" data-sha256="stale">{}</script></figure>
+
+<!-- ===== HTML-only: script-data-literal ===== -->
+
+<!-- LINT-EXPECT[script-data-literal] -->
+<script>draw([0.1, 0.2, 0.35, 0.5, 0.8, 1.3]);</script>
+
+<!-- LINT-OK -->
+<script>const margin = [12, 16, 38, 56];</script>
+
+<!-- ===== HTML-only: registered tables and dates ===== -->
+
+<!-- LINT-OK -->
+<table data-sci-table="growth_series" data-sha256="9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f" data-content-sha256="63aad2eb7c5fada7de8e4d751717c147995cb1a4728410efbcb2824dfaa93af1"><tbody><!-- sci-rows --><tr><td>17</td><td>0.42</td></tr><!-- /sci-rows --></tbody></table>
+
+<!-- LINT-EXPECT[unfingerprinted-data] -->
+<table data-sci-table="growth_series" data-sha256="9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f" data-content-sha256="63aad2eb7c5fada7de8e4d751717c147995cb1a4728410efbcb2824dfaa93af1"><tbody><!-- sci-rows --><tr><td>18</td><td>0.42</td></tr><!-- /sci-rows --></tbody></table>
+
+<!-- LINT-OK -->
+<p>Compiled on <time datetime="2026-09-30">30 September 2026</time>.</p>
+
+</body>
+</html>

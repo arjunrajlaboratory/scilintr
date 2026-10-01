@@ -22,7 +22,8 @@ from __future__ import annotations
 
 import re
 
-from scitexlintr._doc import TexDoc
+from scitexlintr._display import derived_forms
+from scitexlintr._doc import TexDoc, phrase_pattern, skip_inline_space
 from scitexlintr._finding import Finding
 from scitexlintr._manifest import Manifest, values_equal_as_snapshot
 from scitexlintr._rules._base import Rule
@@ -43,7 +44,7 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
         if entry.value is None:
             continue
         for match_start, match_end, label in _find_value_matches(
-            doc.stripped, entry.value
+            doc.stripped, entry.value, getattr(doc, "fmt", "tex")
         ):
             if not doc.in_prose(match_start):
                 continue
@@ -58,12 +59,38 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
                     col=col,
                     message=(
                         f"raw value {label!r} appears in prose; wrap with "
-                        f"\\SciVal{{\\{entry.macro_name}}}{{{label}}} "
-                        f"(manifest id={entry.id})"
+                        f"{doc.wrap_hint(entry, label)} (manifest id={entry.id})"
                     ),
                     severity="error",
                 )
             )
+
+    # Rendered forms of unit-derived values: 0.9535 with unit percent is
+    # written "95.4%", so that literal is as raw as "0.9535" would be.
+    by_number: dict[str, list] = {}
+    for entry, number, suffix in derived_forms(manifest, getattr(doc, "fmt", "tex")):
+        by_number.setdefault(number, []).append((entry, suffix))
+    for m in _NUMERIC_TOKEN_RE.finditer(doc.stripped, doc.body_start, doc.body_end) if by_number else ():
+        number = m.group(0)
+        if number not in by_number or not doc.in_prose(m.start()) or m.start() in seen_offsets:
+            continue
+        after = skip_inline_space(doc.stripped, m.end())
+        for entry, suffix in by_number[number]:
+            if suffix and not doc.stripped.startswith(suffix, after):
+                continue
+            seen_offsets.add(m.start())
+            label = number + suffix
+            # HTML spans show the rendered form; a TeX \SciVal snapshot is the stored value.
+            snapshot = label if getattr(doc, "fmt", "tex") == "html" else entry.value_repr
+            line, col = doc.lookup(m.start())
+            findings.append(
+                Finding(
+                    rule=CODE, line=line, col=col, severity="error",
+                    message=(f"raw value {label!r} is the rendered form of manifest id={entry.id}; "
+                             f"wrap with {doc.wrap_hint(entry, snapshot)}"),
+                )
+            )
+            break
     return findings
 
 
@@ -76,7 +103,7 @@ _NUMERIC_TOKEN_RE = re.compile(
 )
 
 
-def _find_value_matches(text: str, value: object):
+def _find_value_matches(text: str, value: object, fmt: str = "tex"):
     """Yield ``(start, end, label)`` for every occurrence of ``value`` in ``text``.
 
     Numeric values are matched by scanning numeric tokens and comparing
@@ -88,14 +115,11 @@ def _find_value_matches(text: str, value: object):
     if isinstance(value, str):
         if not value:
             return
-        # Use a sliding find for verbatim matches.
-        i = 0
-        while True:
-            j = text.find(value, i)
-            if j < 0:
-                return
-            yield j, j + len(value), value
-            i = j + len(value)
+        # As a phrase, on word boundaries: the value "WT" is not raw inside
+        # "WTF1" or "SWT", and "treated versus control" matches across a line
+        # break or inline markup.
+        for m in phrase_pattern(value, fmt).finditer(text):
+            yield m.start(), m.end(), value
         return
 
     if isinstance(value, (int, float)) and not isinstance(value, bool):

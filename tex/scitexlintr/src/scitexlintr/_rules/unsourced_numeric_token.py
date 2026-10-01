@@ -16,8 +16,9 @@ from __future__ import annotations
 
 import re
 
-from scitexlintr._doc import TexDoc
+from scitexlintr._doc import TexDoc, skip_inline_space
 from scitexlintr._finding import Finding
+from scitexlintr._display import derived_forms
 from scitexlintr._manifest import Manifest, values_equal_as_snapshot
 from scitexlintr._rules._base import Rule
 from scitexlintr._rules.handwritten_numeric_claim import HANDWRITTEN_PATTERN
@@ -73,6 +74,10 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
             doc.stripped, doc.body_start, doc.body_end
         )
     }
+    derived: dict[str, set[str]] = {}
+    if manifest is not None:
+        for _, text, suffix in derived_forms(manifest, getattr(doc, "fmt", "tex")):
+            derived.setdefault(text, set()).add(suffix)
     for m in _NUMBER_RE.finditer(doc.stripped, doc.body_start, doc.body_end):
         offset = m.start()
         if offset in seen:
@@ -90,6 +95,14 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
             signed = "-" + num
         if manifest is not None and (
             _matches_manifest(manifest, num) or _matches_manifest(manifest, signed)
+        ):
+            continue
+
+        # Rendered form of a unit-derived value -> raw-generated-value, which
+        # flags it only with its suffix (the % sign for a percent). A bare
+        # "95.4" beside a 95.4% entry is still unsourced.
+        if num in derived and any(
+            not sfx or doc.stripped.startswith(sfx, skip_inline_space(doc.stripped, m.end())) for sfx in derived[num]
         ):
             continue
 
@@ -145,7 +158,7 @@ def _is_threshold_context(text: str, offset: int, body_start: int) -> bool:
         i -= 1
     if i < body_start:
         return False
-    if text[i] in "<>":
+    if text[i] in "<>≤≥≪≫":
         return True
     # Multi-char comparison spellings: ``<=``, ``>=``, ``!=`` (the threshold
     # regex matches ``<=`` / ``>=`` too, so we must mirror them here or the

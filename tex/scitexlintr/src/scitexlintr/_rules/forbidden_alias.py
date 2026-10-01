@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import re
 
-from scitexlintr._doc import TexDoc
+from scitexlintr._doc import TexDoc, phrase_pattern
 from scitexlintr._finding import Finding
 from scitexlintr._manifest import Manifest
 from scitexlintr._rules._base import Rule
@@ -27,21 +27,23 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
         return []
     findings: list[Finding] = []
     seen: set[tuple[int, str]] = set()
+    fmt = getattr(doc, "fmt", "tex")
     for entry in manifest.numbers:
-        canonical = (entry.label_canonical or "").lower()
+        # Spans where the approved label itself appears: an alias inside one
+        # ("accuracy" within "exact match accuracy") is not a forbidden use.
+        canonical_spans = []
+        if entry.label_canonical and entry.label_canonical.strip():
+            canonical_re = phrase_pattern(entry.label_canonical, fmt, re.IGNORECASE, boundary="[A-Za-z]")
+            canonical_spans = [(c.start(), c.end()) for c in
+                               canonical_re.finditer(doc.stripped, doc.body_start, doc.body_end)]
         for alias in entry.label_aliases_forbidden:
             if not alias.strip():
                 continue
-            pattern = re.compile(
-                r"(?<![A-Za-z])" + re.escape(alias) + r"(?![A-Za-z])",
-                re.IGNORECASE,
-            )
+            pattern = phrase_pattern(alias, fmt, re.IGNORECASE, boundary="[A-Za-z]")
             for m in pattern.finditer(doc.stripped, doc.body_start, doc.body_end):
                 if not doc.in_prose(m.start()):
                     continue
-                if canonical and _alias_is_inside_canonical(
-                    doc.stripped, m.start(), m.end(), canonical
-                ):
+                if any(a <= m.start() and m.end() <= b for a, b in canonical_spans):
                     continue
                 key = (m.start(), alias.lower())
                 if key in seen:
@@ -61,24 +63,6 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
                     )
                 )
     return findings
-
-
-def _alias_is_inside_canonical(text: str, start: int, end: int, canonical_lc: str) -> bool:
-    """Return True if the alias span at [start, end) is a substring of the
-    canonical label appearing at the same location in ``text``.
-
-    ``"accuracy"`` inside ``"exact match accuracy"`` should not fire; that
-    IS the approved label, not a bare alias.
-    """
-    alias_lc = text[start:end].lower()
-    pos = canonical_lc.find(alias_lc)
-    if pos < 0:
-        return False
-    window_start = max(0, start - pos)
-    window_end = window_start + len(canonical_lc)
-    if window_end > len(text):
-        return False
-    return text[window_start:window_end].lower() == canonical_lc
 
 
 rule = Rule(code=CODE, check=_check, requires_manifest=True)

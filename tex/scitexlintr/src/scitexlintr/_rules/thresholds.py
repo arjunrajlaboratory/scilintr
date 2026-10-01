@@ -26,7 +26,7 @@ MAGIC_CODE = "magic-tex-threshold"
 # followed by whitespace and a numeric literal.
 _THRESHOLD_RE = re.compile(
     r"(?P<op>"
-    r"<=|>=|<|>|"
+    r"<=|>=|<|>|≤|≥|≪|≫|"
     r"\\le(?:q)?(?![A-Za-z@])|"
     r"\\ge(?:q)?(?![A-Za-z@])|"
     r"\\ll(?![A-Za-z@])|"
@@ -67,7 +67,7 @@ def _check_unwrapped(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
                 col=col,
                 message=(
                     f"threshold {num} matches manifest id={entry.id}; "
-                    f"wrap as \\SciVal{{\\{entry.macro_name}}}{{{num}}}"
+                    f"wrap as {doc.wrap_hint(entry, num)}"
                 ),
                 severity="error",
             )

@@ -7,9 +7,17 @@ from pathlib import Path
 
 from scitexlintr._doc import prepare
 from scitexlintr._finding import Finding
+from scitexlintr._html import prepare_html
 from scitexlintr._manifest import Manifest, load_manifest
 from scitexlintr._rules import ALL_RULES
-from scitexlintr._waivers import find_waivers, is_waived
+from scitexlintr._waivers import find_html_waivers, find_waivers, is_waived
+
+HTML_SUFFIXES = (".html", ".htm")
+
+
+def format_for_path(path: str | Path) -> str:
+    """``"html"`` for ``.html`` / ``.htm`` files, ``"tex"`` for everything else."""
+    return "html" if Path(path).suffix.lower() in HTML_SUFFIXES else "tex"
 
 
 def lint_tex(
@@ -22,6 +30,25 @@ def lint_tex(
 ) -> list[Finding]:
     """Lint a single TeX source string against an optional manifest."""
     doc = prepare(source, filename=filename)
+    waivers = find_waivers(source) if respect_waivers else []
+    return _run(doc, manifest, rules, waivers, filename)
+
+
+def lint_html(
+    source: str,
+    *,
+    filename: str = "<test>",
+    manifest: Manifest | None = None,
+    rules: list[str] | None = None,
+    respect_waivers: bool = True,
+) -> list[Finding]:
+    """Lint a single HTML report source string against an optional manifest."""
+    doc = prepare_html(source, filename=filename)
+    waivers = find_html_waivers(doc) if respect_waivers else []
+    return _run(doc, manifest, rules, waivers, filename)
+
+
+def _run(doc, manifest, rules, waivers, filename) -> list[Finding]:
     selected = ALL_RULES if rules is None else [r for r in ALL_RULES if r.code in rules]
 
     findings: list[Finding] = []
@@ -33,8 +60,7 @@ def lint_tex(
                 f = replace(f, filename=filename)
             findings.append(f)
 
-    if respect_waivers:
-        waivers = find_waivers(source)
+    if waivers:
         findings = [f for f in findings if not is_waived(f.line, f.rule, waivers)]
 
     findings.sort(key=lambda f: (f.line, f.col, f.rule))
@@ -51,7 +77,8 @@ def lint_file(
     p = Path(path)
     source = p.read_text(encoding="utf-8")
     manifest = load_manifest(manifest_path) if manifest_path else None
-    return lint_tex(
+    lint = lint_html if format_for_path(p) == "html" else lint_tex
+    return lint(
         source,
         filename=str(p),
         manifest=manifest,
@@ -60,7 +87,9 @@ def lint_file(
     )
 
 
-def apply_fixes(source: str, findings: list[Finding]) -> tuple[str, int]:
+def apply_fixes(
+    source: str, findings: list[Finding], *, fmt: str = "tex"
+) -> tuple[str, int]:
     """Apply ``--write`` auto-fixes for findings that carry a ``Fix``.
 
     Fixes are applied from end-of-document to start so earlier offsets stay
@@ -69,9 +98,11 @@ def apply_fixes(source: str, findings: list[Finding]) -> tuple[str, int]:
 
     Fixes are skipped (left unapplied, the finding stands) when:
 
-    * the [start, end) range contains a TeX comment (unescaped ``%``) —
+    * TeX: the [start, end) range contains a TeX comment (unescaped ``%``) —
       the offsets came from the stripped source, so a naive rewrite would
       erase the author's note;
+    * HTML (``fmt="html"``): the range contains markup (``<``) — rewriting
+      it would delete nested tags or comments;
     * two fixes overlap — the second cannot trust the first's offsets.
     """
     fixes = [f.fix for f in findings if f.fix is not None]
@@ -89,7 +120,10 @@ def apply_fixes(source: str, findings: list[Finding]) -> tuple[str, int]:
             continue
         # Comment guard: if the byte range contains an unescaped ``%``,
         # rewriting it would erase a comment.
-        if _contains_unescaped_percent(buf, fx.start, fx.end):
+        if fmt == "html":
+            if "<" in buf[fx.start : fx.end] and not fx.replaces_markup:
+                continue
+        elif _contains_unescaped_percent(buf, fx.start, fx.end):
             continue
         buf = buf[: fx.start] + fx.replacement + buf[fx.end :]
         last_start = fx.start

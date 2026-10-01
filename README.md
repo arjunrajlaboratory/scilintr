@@ -32,7 +32,7 @@ scilintr/
 │   └── ...
 ├── py/scilintr/                <- Python package (v0.1.1, 27 rules, 139 tests)
 │   └── ...
-└── tex/scitexlintr/            <- LaTeX report linter (v0.1.0, 10 rules, 117 tests)
+└── tex/scitexlintr/            <- LaTeX + HTML report linter (v0.2.0, 13 rules, 214 tests)
     └── ...
 ```
 
@@ -50,12 +50,13 @@ universal scientific-code failure modes plus a few Python-specific ones
 rule-code cross-reference table.
 
 The `tex/scitexlintr/` package is a sibling, not a port: it lints the
-`.tex` source of scientific reports against a manifest of registered
+`.tex` or `.html` source of scientific reports against a manifest of registered
 values, figures, and terms. Its rule catalog (snapshot drift,
 unfingerprinted figures, handwritten numeric claims, forbidden aliases,
 …) is disjoint from the analysis-code rules — they catch drift between
 the analysis and its writeup, not bugs inside the analysis. It uses the
-same TeX-comment-flavored `% ANALYSIS_OK[rule]:` waiver convention. See
+same structured waiver convention, as a TeX comment (`% ANALYSIS_OK[rule]:`)
+or an HTML comment (`<!-- ANALYSIS_OK[rule]: … -->`). See
 [`tex/scitexlintr/README.md`](tex/scitexlintr/README.md) for the full
 catalog and the wrapper-macro / manifest contract.
 
@@ -102,10 +103,10 @@ findings = lint_code(source_string, filename="foo.py")
 findings = lint_paths(["path/to/dir/"])
 ```
 
-### LaTeX reports (scitexlintr)
+### LaTeX and HTML reports (scitexlintr)
 
 ```bash
-pip install scitexlintr   # from PyPI
+pip install "scitexlintr>=0.2"   # from PyPI; the HTML frontend needs 0.2.0
 ```
 
 CLI:
@@ -116,6 +117,7 @@ scitexlintr report.tex                              # manifest-free rules only
 scitexlintr report.tex --manifest=... --write       # auto-fix snapshot drift
 scitexlintr report.tex --no-waivers                 # audit mode
 scitexlintr report.tex --rules=snapshot-mismatch    # restrict to specific rules
+scitexlintr report.html --manifest=... --write      # HTML report: same rules and flags
 ```
 
 Library:
@@ -161,6 +163,10 @@ builds a "prose mask" that excludes structural-macro arguments
 themselves), and runs each rule over the prose. Snapshot drift, raw
 generated values, unfingerprinted figures, and unsourced numeric
 claims are then matched against the manifest's published contract.
+For `.html` reports, a stdlib `html.parser` frontend builds the same
+offset-preserving prose view (tags, comments, scripts, code, and value
+wrappers excluded; character references decoded in place), so every
+rule runs unchanged on both formats.
 
 ## Status
 
@@ -172,13 +178,18 @@ claims are then matched against the manifest's published contract.
   `unchecked-merge`, `magic-threshold`, `label-in-blind-stage`,
   `synthetic-data-generation`, …). 139 pytest tests passing. `python -m
   build` produces clean wheel + sdist; `twine check` PASSED.
-- **scitexlintr (v0.1.0)** — 10 rules covering manifest-anchored checks
+- **scitexlintr (v0.2.0)** — 13 rules, run on both `.tex` and `.html`
+  report sources, covering manifest-anchored checks
   (`snapshot-mismatch` auto-fixable, `raw-generated-value`,
   `bare-generated-macro`, `unwrapped-threshold`, `unfingerprinted-figure`,
   `unsourced-numeric-token`, `overloaded-term-no-warning`,
   `forbidden-alias`) and manifest-free checks
-  (`handwritten-numeric-claim`, `magic-tex-threshold`). 117 pytest
-  tests passing. Hand-rolled TeX scanner; no external runtime deps.
+  (`handwritten-numeric-claim`, `magic-tex-threshold`), plus three
+  HTML-only checks (`unknown-value-id`, `unfingerprinted-data`,
+  `script-data-literal`). 214
+  pytest tests passing, including an HTML port of the TeX corpus held to
+  the same expectations. Hand-rolled TeX scanner and stdlib HTML
+  frontend; no external runtime deps.
   Reviewed twice by automated review (codex) on PR #1; six findings
   addressed across two rounds.
 
@@ -194,7 +205,7 @@ the commands in the [Install](#install) section above.
   and code failure modes that motivate each rule.
 - [`r/scilintr/README.md`](r/scilintr/README.md) — R package details.
 - [`py/scilintr/README.md`](py/scilintr/README.md) — Python package details.
-- [`tex/scitexlintr/README.md`](tex/scitexlintr/README.md) — LaTeX report
+- [`tex/scitexlintr/README.md`](tex/scitexlintr/README.md) — LaTeX and HTML report
   linter: wrapper-macro convention, manifest schema, rule catalog.
 
 ## License

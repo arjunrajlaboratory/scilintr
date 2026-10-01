@@ -1,7 +1,7 @@
 [project]
 name = "scitexlintr"
-version = "0.1.0"
-description = "Scientific linting for LaTeX reports — snapshot drift, unsourced numbers, unfingerprinted figures."
+version = "0.2.0"
+description = "Scientific linting for LaTeX and HTML reports — snapshot drift, unsourced numbers, unfingerprinted figures."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -9,6 +9,7 @@ authors = [{ name = "Arjun Raj", email = "arjunraj@seas.upenn.edu" }]
 keywords = [
     "lint",
     "latex",
+    "html",
     "scientific-writing",
     "reproducibility",
     "report-generation",
@@ -26,6 +27,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering",
+    "Topic :: Text Processing :: Markup :: HTML",
     "Topic :: Text Processing :: Markup :: LaTeX",
     "Topic :: Software Development :: Quality Assurance",
 ]

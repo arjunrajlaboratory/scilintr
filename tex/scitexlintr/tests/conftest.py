@@ -133,3 +133,8 @@ def corpus_source() -> str:
 @pytest.fixture
 def corpus_manifest():
     return parse_manifest(json.loads((CORPUS_DIR / "manifest.json").read_text()))
+
+
+@pytest.fixture
+def html_corpus_source() -> str:
+    return (CORPUS_DIR / "report.html").read_text()

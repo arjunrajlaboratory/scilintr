@@ -19,8 +19,8 @@ CODE = "bare-generated-macro"
 
 
 def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
-    if manifest is None:
-        return []
+    if manifest is None or doc.fmt != "tex":
+        return []  # macros exist only in TeX; HTML has no bare-macro form
     if not manifest.numbers:
         return []
     macro_names = {n.macro_name for n in manifest.numbers if n.macro_name}

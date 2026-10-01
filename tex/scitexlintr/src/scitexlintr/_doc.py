@@ -26,6 +26,7 @@ class TexDoc:
     macro_calls: tuple[MacroCall, ...]
     prose_mask: bytearray
     lookup: Callable[[int], tuple[int, int]]
+    fmt: str = "tex"
 
     # Cached views (populated lazily by rules that need them).
     _calls_by_name: dict[str, tuple[MacroCall, ...]] | None = field(default=None, repr=False)
@@ -42,6 +43,11 @@ class TexDoc:
         if 0 <= offset < len(self.prose_mask):
             return bool(self.prose_mask[offset])
         return False
+
+    def wrap_hint(self, entry, label: str) -> str:
+        """The wrapper spelling a rule suggests for a raw manifest value."""
+        wrapper = "SciText" if isinstance(entry.value, str) else "SciVal"
+        return f"\\{wrapper}{{\\{entry.macro_name}}}{{{label}}}"
 
     def offset_in_wrapper_first_arg(self, offset: int) -> bool:
         """True if ``offset`` lies inside the first argument of a wrapper macro
@@ -75,6 +81,34 @@ def prepare(source: str, filename: str) -> TexDoc:
 # ---------------------------------------------------------------------------
 # Helper: collapse arg text whose body is a single ``\macro`` reference.
 # ---------------------------------------------------------------------------
+
+def phrase_pattern(phrase: str, fmt: str = "tex", flags: int = 0, boundary: str = r"\w") -> "re.Pattern[str]":
+    """A regex for ``phrase`` as a reader sees it: words separated by any run
+    of whitespace — a line break in the source, the spaces an HTML tag or
+    ``&nbsp;`` leaves in the prose view (``treated <em>versus</em> control``),
+    or a TeX tie (``treated~versus``). Every rule that matches a phrase uses
+    this one definition, so none of them compares exact single spaces against
+    text whose whitespace varies.
+
+    ``boundary`` is the character class that must not touch the phrase's ends
+    (only enforced where the phrase itself starts or ends with one).
+    """
+    words = phrase.split()
+    if not words:
+        return re.compile(r"(?!)")
+    sep = r"(?:\s|~)+" if fmt == "tex" else r"\s+"
+    body = sep.join(re.escape(w) for w in words)
+    lead = rf"(?<!{boundary})" if re.match(boundary, words[0][0]) else ""
+    trail = rf"(?!{boundary})" if re.match(boundary, words[-1][-1]) else ""
+    return re.compile(lead + body + trail, flags)
+
+
+def skip_inline_space(text: str, i: int) -> int:
+    """Offset of the first character at or after ``i`` that is not a space or tab."""
+    while i < len(text) and text[i] in " \t":
+        i += 1
+    return i
+
 
 _MACRO_REF_RE = re.compile(r"^\s*\\([A-Za-z@]+)\s*$")
 

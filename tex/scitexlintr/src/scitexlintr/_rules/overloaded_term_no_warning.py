@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import re
 
-from scitexlintr._doc import TexDoc
+from scitexlintr._doc import TexDoc, phrase_pattern
 from scitexlintr._finding import Finding
 from scitexlintr._manifest import Manifest
 from scitexlintr._rules._base import Rule
@@ -29,13 +29,19 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
     for term in manifest.terms:
         if not term.overloaded_warning:
             continue
-        # Find first prose occurrence of the term.
-        term_re = re.compile(r"(?<![A-Za-z@])" + re.escape(term.id) + r"(?![A-Za-z@])")
+        # First prose mention under any spelling: the id (case-sensitive — often
+        # an acronym), the expansion, or a declared ``match`` alternative
+        # (case-insensitive words). A slug id like "occupancy_width" rarely
+        # appears in prose, so matching on the id alone would never fire.
+        spellings = [(term.id, 0)] + [(w, re.IGNORECASE) for w in (term.expansion, *term.match) if w]
         first_match = None
-        for m in term_re.finditer(doc.stripped, doc.body_start, doc.body_end):
-            if doc.in_prose(m.start()):
-                first_match = m
-                break
+        for word, flags in spellings:
+            pattern = phrase_pattern(word, getattr(doc, "fmt", "tex"), flags, boundary="[A-Za-z@]")
+            for m in pattern.finditer(doc.stripped, doc.body_start, doc.body_end):
+                if doc.in_prose(m.start()):
+                    if first_match is None or m.start() < first_match.start():
+                        first_match = m
+                    break
         if first_match is None:
             continue
         # Acceptable warning placements: anywhere BEFORE the first mention,
@@ -44,10 +50,8 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
         # sentence ends at the next `.`, `!`, or `?` followed by
         # whitespace, a newline, or end of body.
         sentence_end = _sentence_end(doc.stripped, first_match.end(), doc.body_end)
-        warning_idx = doc.stripped.find(
-            term.overloaded_warning, doc.body_start, sentence_end
-        )
-        if warning_idx >= 0:
+        warning = phrase_pattern(term.overloaded_warning, getattr(doc, "fmt", "tex"), boundary="(?!)")
+        if warning.search(doc.stripped, doc.body_start, sentence_end):
             continue
         line, col = doc.lookup(first_match.start())
         findings.append(

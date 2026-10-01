@@ -6,10 +6,16 @@ The manifest is scitexlintr's published contract. Schema (every key optional):
       "numbers": [
         {"id": "...", "value": ...,
          "label_canonical": "...",            (optional)
-         "label_aliases_forbidden": [...]}    (optional)
+         "label_aliases_forbidden": [...],    (optional)
+         "unit": "percent", "precision": 1,   (optional; derived display)
+         "display": "...",                    (optional; TeX display override)
+         "display_html": "..."}               (optional; HTML display override)
       ],
       "figures": [
         {"id": "...", "path": "...", "sha256": "..."}
+      ],
+      "data": [
+        {"id": "...", "path": "...", "sha256": "..."}   (HTML interactives)
       ],
       "terms": [
         {"id": "...", "expansion": "...",
@@ -72,6 +78,10 @@ class NumberEntry:
     macro_name: str  # without leading backslash, e.g., "NSamples"
     label_canonical: str | None = None
     label_aliases_forbidden: tuple[str, ...] = ()
+    unit: str | None = None
+    precision: object = 1
+    display: str | None = None
+    display_html: str | None = None
 
     @property
     def value_repr(self) -> str:
@@ -98,10 +108,36 @@ class FigureEntry:
 
 
 @dataclass(frozen=True)
+class DataEntry:
+    """A data file behind an interactive HTML figure (slider, animation)."""
+    id: str
+    path: str
+    sha256: str | None = None
+
+
+@dataclass(frozen=True)
 class TermEntry:
     id: str
     expansion: str
     overloaded_warning: str | None = None
+    match: tuple[str, ...] = ()   # other spellings that count as a mention
+
+
+def worked_rows_sha256(rows) -> str:
+    """sha256 of a worked example's rows as canonical JSON (sorted keys, no
+    whitespace). Row order is content. sync_html_report.py stamps the same
+    hash on a ``data-sci-worked`` table, so a table rendered from rows that
+    have since changed in the manifest is drift."""
+    import hashlib
+
+    canonical = json.dumps(rows, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True)
+class WorkedExample:
+    id: str
+    sha256: str          # worked_rows_sha256(rows)
 
 
 @dataclass(frozen=True)
@@ -109,8 +145,30 @@ class Manifest:
     numbers: tuple[NumberEntry, ...] = ()
     figures: tuple[FigureEntry, ...] = ()
     terms: tuple[TermEntry, ...] = ()
+    data: tuple[DataEntry, ...] = ()
     by_macro: dict[str, NumberEntry] = field(default_factory=dict)
     by_figure_path: dict[str, FigureEntry] = field(default_factory=dict)
+    by_id: dict[str, NumberEntry] = field(default_factory=dict)
+    by_figure_id: dict[str, FigureEntry] = field(default_factory=dict)
+    by_data_id: dict[str, DataEntry] = field(default_factory=dict)
+    macro_counts: dict[str, int] = field(default_factory=dict)
+    worked_by_id: dict[str, WorkedExample] = field(default_factory=dict)
+
+    def resolve_number(self, key: str) -> NumberEntry | None:
+        """Look up a number by its exact manifest id. A key with no namespace
+        (``n_samples``) also resolves to a namespaced entry
+        (``diff-expr.n_samples``) through the id→macro transform — but only
+        when exactly one entry maps there. A key that names a namespace must
+        match exactly: ``b.n_samples`` never resolves to ``a.n_samples``."""
+        entry = self.by_id.get(key)
+        if entry is not None:
+            return entry
+        if _NAMESPACE_SPLIT_RE.search(key):
+            return None
+        macro = id_to_macro_name(key)
+        if not macro or self.macro_counts.get(macro, 0) != 1:
+            return None
+        return self.by_macro.get(macro)
 
 
 def load_manifest(path: str | Path) -> Manifest:
@@ -134,6 +192,10 @@ def parse_manifest(raw: dict) -> Manifest:
                 macro_name=macro,
                 label_canonical=entry.get("label_canonical"),
                 label_aliases_forbidden=tuple(entry.get("label_aliases_forbidden") or []),
+                unit=entry.get("unit"),
+                precision=entry.get("precision", 1),
+                display=entry.get("display"),
+                display_html=entry.get("display_html"),
             )
         )
 
@@ -161,7 +223,17 @@ def parse_manifest(raw: dict) -> Manifest:
                 id=tid,
                 expansion=expansion,
                 overloaded_warning=entry.get("overloaded_warning"),
+                match=tuple(m for m in (entry.get("match") or []) if isinstance(m, str) and m.strip()),
             )
+        )
+
+    data: list[DataEntry] = []
+    for entry in raw.get("data", []) or []:
+        did = entry.get("id")
+        if not did:
+            continue
+        data.append(
+            DataEntry(id=did, path=entry.get("path", ""), sha256=entry.get("sha256"))
         )
 
     by_macro = {n.macro_name: n for n in numbers}
@@ -171,9 +243,26 @@ def parse_manifest(raw: dict) -> Manifest:
         numbers=tuple(numbers),
         figures=tuple(figures),
         terms=tuple(terms),
+        data=tuple(data),
         by_macro=by_macro,
         by_figure_path=by_figure_path,
+        by_id={n.id: n for n in numbers},
+        by_figure_id={f.id: f for f in figures},
+        by_data_id={d.id: d for d in data},
+        macro_counts=_count_macros(numbers),
+        worked_by_id={
+            w["id"]: WorkedExample(id=w["id"], sha256=worked_rows_sha256(w.get("rows") or []))
+            for w in raw.get("worked_examples", []) or []
+            if isinstance(w, dict) and w.get("id")
+        },
     )
+
+
+def _count_macros(numbers) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for n in numbers:
+        counts[n.macro_name] = counts.get(n.macro_name, 0) + 1
+    return counts
 
 
 def id_to_macro_name(manifest_id: str) -> str:
@@ -193,7 +282,7 @@ def id_to_macro_name(manifest_id: str) -> str:
     for segment in local.split("_"):
         if not segment:
             continue
-        if segment.isdigit():
+        if segment.isascii() and segment.isdigit():
             out_segments.append("".join(_DIGIT_WORDS[d] for d in segment))
         elif segment.isalpha() and len(segment) <= 3:
             out_segments.append(segment.upper())
@@ -205,7 +294,7 @@ def id_to_macro_name(manifest_id: str) -> str:
             # \newcommand and the macro lookup below.
             chars: list[str] = []
             for j, ch in enumerate(segment):
-                if ch.isdigit():
+                if ch in _DIGIT_WORDS:
                     chars.append(_DIGIT_WORDS[ch])
                 elif j == 0:
                     chars.append(ch.upper())

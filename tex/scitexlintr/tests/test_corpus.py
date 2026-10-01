@@ -14,21 +14,35 @@ import re
 
 import pytest
 
-from scitexlintr import lint_tex
+from scitexlintr import lint_html, lint_tex
 
-_EXPECT_RE = re.compile(r"^\s*%\s*LINT-EXPECT\[(?P<rules>[^\]]+)\]\s*$")
-_OK_RE = re.compile(r"^\s*%\s*LINT-OK\s*$")
-_COMMENT_RE = re.compile(r"^\s*%")
+# TeX markers are ``% ...`` comment lines; HTML markers are single-line
+# ``<!-- ... -->`` comments. Both corpora share one checker so the two
+# frontends are held to the same marker semantics.
+_SYNTAX = {
+    "tex": (
+        re.compile(r"^\s*%\s*LINT-EXPECT\[(?P<rules>[^\]]+)\]\s*$"),
+        re.compile(r"^\s*%\s*LINT-OK\s*$"),
+        re.compile(r"^\s*%"),
+    ),
+    "html": (
+        re.compile(r"^\s*<!--\s*LINT-EXPECT\[(?P<rules>[^\]]+)\]\s*-->\s*$"),
+        re.compile(r"^\s*<!--\s*LINT-OK\s*-->\s*$"),
+        re.compile(r"^\s*<!--.*-->\s*$"),
+    ),
+}
+_EXPECT_RE, _OK_RE, _COMMENT_RE = _SYNTAX["tex"]
 _BLANK_RE = re.compile(r"^\s*$")
 
 
-def _next_code_line(lines: list[str], from_idx: int) -> int:
+def _next_code_line(lines: list[str], from_idx: int, comment_re=None) -> int:
     """Return the 1-indexed line number of the next non-comment, non-blank line."""
+    comment_re = comment_re or _COMMENT_RE
     for j in range(from_idx, len(lines)):
         line = lines[j]
         if _BLANK_RE.match(line):
             continue
-        if _COMMENT_RE.match(line):
+        if comment_re.match(line):
             continue
         return j + 1
     raise AssertionError(f"no code line after index {from_idx}")
@@ -36,6 +50,29 @@ def _next_code_line(lines: list[str], from_idx: int) -> int:
 
 def test_corpus_matches_markers(corpus_source, corpus_manifest):
     findings = lint_tex(corpus_source, filename="report.tex", manifest=corpus_manifest)
+    _check_markers(corpus_source, findings, "tex")
+
+
+def test_html_corpus_matches_markers(html_corpus_source, corpus_manifest):
+    findings = lint_html(html_corpus_source, filename="report.html", manifest=corpus_manifest)
+    _check_markers(html_corpus_source, findings, "html")
+
+
+def test_html_corpus_exercises_every_html_rule(html_corpus_source, corpus_manifest):
+    findings = lint_html(html_corpus_source, filename="report.html", manifest=corpus_manifest)
+    fired = {f.rule for f in findings}
+    expected = {
+        "snapshot-mismatch", "raw-generated-value", "unwrapped-threshold",
+        "unfingerprinted-figure", "unsourced-numeric-token",
+        "overloaded-term-no-warning", "forbidden-alias",
+        "handwritten-numeric-claim", "magic-tex-threshold",
+        "unknown-value-id", "unfingerprinted-data", "script-data-literal",
+    }
+    assert not expected - fired, f"HTML corpus does not exercise: {sorted(expected - fired)}"
+
+
+def _check_markers(corpus_source: str, findings, fmt: str) -> None:
+    expect_re, ok_re, comment_re = _SYNTAX[fmt]
     findings_by_line: dict[int, set[str]] = {}
     for f in findings:
         findings_by_line.setdefault(f.line, set()).add(f.rule)
@@ -45,12 +82,12 @@ def test_corpus_matches_markers(corpus_source, corpus_manifest):
     seen_markers = 0
 
     for i, line in enumerate(lines):
-        expect = _EXPECT_RE.match(line)
-        ok = _OK_RE.match(line)
+        expect = expect_re.match(line)
+        ok = ok_re.match(line)
         if not expect and not ok:
             continue
         seen_markers += 1
-        target_line = _next_code_line(lines, i + 1)
+        target_line = _next_code_line(lines, i + 1, comment_re)
         fired = findings_by_line.get(target_line, set())
 
         if expect:
