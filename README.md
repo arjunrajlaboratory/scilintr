@@ -30,9 +30,9 @@ scilintr/
 │   └── failure-modes.md        <- catalogued bugs each rule catches
 ├── r/scilintr/                 <- R package (v0.1.1, 44 rules, 161 tests)
 │   └── ...
-├── py/scilintr/                <- Python package (v0.1.1, 27 rules, 139 tests)
+├── py/scilintr/                <- Python package (v0.1.2, 27 rules, 139 tests)
 │   └── ...
-└── tex/scitexlintr/            <- LaTeX + HTML report linter (v0.2.0, 13 rules, 214 tests)
+└── tex/scitexlintr/            <- LaTeX + HTML report linter (v0.2.1, 13 rules, 214 tests)
     └── ...
 ```
 
@@ -174,11 +174,11 @@ rule runs unchanged on both formats.
   R020/R025/R026 cross-file). 161 testthat fixtures passing. `R CMD
   check --as-cran` clean. Tested against real analysis code with a
   ~62% noise reduction from naive matching (after v1.1 tightening).
-- **Python package (v0.1.1)** — 27 rules implemented (`broad-exception`,
+- **Python package (v0.1.2)** — 27 rules implemented (`broad-exception`,
   `unchecked-merge`, `magic-threshold`, `label-in-blind-stage`,
   `synthetic-data-generation`, …). 139 pytest tests passing. `python -m
   build` produces clean wheel + sdist; `twine check` PASSED.
-- **scitexlintr (v0.2.0)** — 13 rules, run on both `.tex` and `.html`
+- **scitexlintr (v0.2.1)** — 13 rules, run on both `.tex` and `.html`
   report sources, covering manifest-anchored checks
   (`snapshot-mismatch` auto-fixable, `raw-generated-value`,
   `bare-generated-macro`, `unwrapped-threshold`, `unfingerprinted-figure`,

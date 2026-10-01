@@ -1,5 +1,29 @@
 # Changelog — scitexlintr
 
+## [0.2.1] - 2026-10-01
+
+### Added
+
+- `unknown-value-id` now covers TeX: `\SciVal{\Macro}{…}` / `\SciText` whose
+  macro no manifest entry generates (and the document doesn't define itself)
+  is an error. Without it, the wrapper escaped every rule and broke `pdflatex`.
+- Region waivers: `% ANALYSIS_OK_BEGIN[rule]: why` … `% ANALYSIS_OK_END[rule]`
+  (TeX, HTML comments, JS comments). A BEGIN with no END waives nothing.
+- Multi-rule waivers: `% ANALYSIS_OK[rule-a, rule-b]: why`.
+
+### Changed
+
+- `snapshot-mismatch`: for an entry with a `unit` or `display`, the snapshot
+  may be the stored value or its rendered form (`96.5\%`), compared ignoring
+  TeX spacing and trailing zeros. `--write` keeps the author's style. An
+  entry whose `unit` cannot be rendered is reported as such.
+- `raw-generated-value`: a percent-suffixed literal equal to an integer
+  value (usually a count) is a warning, not an error, because it is likely a
+  coincidental collision. TeX spacing before `\%` (`97\,\%`) is recognized.
+- README: waiver window and rule scoping stated up front; note on numeric
+  collisions; the top-level README notes `scitexlintr` is a separate install.
+
+
 ## [0.2.0] - 2026-10-01
 
 ### Added
