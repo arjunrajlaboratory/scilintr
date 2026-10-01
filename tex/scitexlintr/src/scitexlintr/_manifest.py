@@ -120,6 +120,24 @@ class TermEntry:
     id: str
     expansion: str
     overloaded_warning: str | None = None
+    match: tuple[str, ...] = ()   # other spellings that count as a mention
+
+
+def worked_rows_sha256(rows) -> str:
+    """sha256 of a worked example's rows as canonical JSON (sorted keys, no
+    whitespace). Row order is content. sync_html_report.py stamps the same
+    hash on a ``data-sci-worked`` table, so a table rendered from rows that
+    have since changed in the manifest is drift."""
+    import hashlib
+
+    canonical = json.dumps(rows, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True)
+class WorkedExample:
+    id: str
+    sha256: str          # worked_rows_sha256(rows)
 
 
 @dataclass(frozen=True)
@@ -134,6 +152,7 @@ class Manifest:
     by_figure_id: dict[str, FigureEntry] = field(default_factory=dict)
     by_data_id: dict[str, DataEntry] = field(default_factory=dict)
     macro_counts: dict[str, int] = field(default_factory=dict)
+    worked_by_id: dict[str, WorkedExample] = field(default_factory=dict)
 
     def resolve_number(self, key: str) -> NumberEntry | None:
         """Look up a number by its exact manifest id. A key with no namespace
@@ -204,6 +223,7 @@ def parse_manifest(raw: dict) -> Manifest:
                 id=tid,
                 expansion=expansion,
                 overloaded_warning=entry.get("overloaded_warning"),
+                match=tuple(m for m in (entry.get("match") or []) if isinstance(m, str) and m.strip()),
             )
         )
 
@@ -230,6 +250,11 @@ def parse_manifest(raw: dict) -> Manifest:
         by_figure_id={f.id: f for f in figures},
         by_data_id={d.id: d for d in data},
         macro_counts=_count_macros(numbers),
+        worked_by_id={
+            w["id"]: WorkedExample(id=w["id"], sha256=worked_rows_sha256(w.get("rows") or []))
+            for w in raw.get("worked_examples", []) or []
+            if isinstance(w, dict) and w.get("id")
+        },
     )
 
 

@@ -39,7 +39,13 @@ def _check(doc, manifest: Manifest | None) -> list[Finding]:
         findings.append(Finding(rule=CODE, line=line, col=col, message=message, severity="error"))
 
     def check(kind: str, start: int, data_id: str, sha: str | None, content_sha: str | None, content: str | None):
-        entry = manifest.by_data_id.get(data_id)
+        if kind == "worked-example table":
+            entry = manifest.worked_by_id.get(data_id)
+            if entry is None:
+                emit(start, f"{kind} id {data_id!r} not in manifest worked_examples[*]")
+                return
+        else:
+            entry = manifest.by_data_id.get(data_id)
         if entry is None:
             emit(start, f"{kind} id {data_id!r} not registered in manifest data[*]")
             return
@@ -70,7 +76,8 @@ def _check(doc, manifest: Manifest | None) -> list[Finding]:
         emit(other.start, f"<script type=\"{other.type}\"> holds data outside a registered data-sci-data "
                           "block; register it in manifest data[*] or remove it")
     for table in doc.tables:
-        check("table", table.start, table.data_id, table.sha256, table.content_sha256, table.rows)
+        kind = "worked-example table" if table.kind == "worked" else "table"
+        check(kind, table.start, table.data_id, table.sha256, table.content_sha256, table.rows)
 
     for fig in doc.figures:
         if fig.interactive and not fig.data_ids:

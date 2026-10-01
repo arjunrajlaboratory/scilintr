@@ -29,13 +29,19 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
     for term in manifest.terms:
         if not term.overloaded_warning:
             continue
-        # Find first prose occurrence of the term.
-        term_re = re.compile(r"(?<![A-Za-z@])" + re.escape(term.id) + r"(?![A-Za-z@])")
+        # First prose mention under any spelling: the id (case-sensitive — often
+        # an acronym), the expansion, or a declared ``match`` alternative
+        # (case-insensitive words). A slug id like "occupancy_width" rarely
+        # appears in prose, so matching on the id alone would never fire.
+        spellings = [(term.id, 0)] + [(w, re.IGNORECASE) for w in (term.expansion, *term.match) if w]
         first_match = None
-        for m in term_re.finditer(doc.stripped, doc.body_start, doc.body_end):
-            if doc.in_prose(m.start()):
-                first_match = m
-                break
+        for word, flags in spellings:
+            pattern = re.compile(r"(?<![A-Za-z@])" + re.escape(word) + r"(?![A-Za-z@])", flags)
+            for m in pattern.finditer(doc.stripped, doc.body_start, doc.body_end):
+                if doc.in_prose(m.start()):
+                    if first_match is None or m.start() < first_match.start():
+                        first_match = m
+                    break
         if first_match is None:
             continue
         # Acceptable warning placements: anywhere BEFORE the first mention,

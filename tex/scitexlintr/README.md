@@ -207,6 +207,11 @@ media or data fails even without access to the source file. A registered
 figure without the markers is an error: `data-sha256` alone can be copied
 from the manifest onto any image.
 
+Worked-example tables rendered from `manifest.worked_examples[id].rows` use
+`data-sci-worked="id"` with the same markers; their `data-sha256` is the
+sha256 of the rows as canonical JSON (sorted keys, no whitespace), so the
+table is checked against the manifest itself.
+
 Large tables generated from a registered file use the same pair:
 
 ```html
@@ -311,7 +316,7 @@ new_source, n_applied = apply_fixes(source_string, findings)
 | `unwrapped-threshold` | error | `FDR < 0.05` in prose when `\FDRThreshold` exists in the manifest. Recognizes `<`, `>`, `<=`, `>=`, `\le`, `\leq`, `\ge`, `\geq`, `\ll`, `\gg`, and Unicode `≤ ≥ ≪ ≫`; numbers include scientific notation. |
 | `unfingerprinted-figure` | error | `\includegraphics{...}` referencing a path not in `manifest.figures[*]`. Forgiving in one direction: a tex-side extensionless path (`figures/foo`) matches a manifest-side `figures/foo.pdf`. |
 | `unsourced-numeric-token` | warning | Any numeric token in prose with no corresponding manifest entry. Skips structural references (`Section 4.2`, `Figure (3)`), typographic percentages (`50\%`), threshold contexts, scientific-notation tails, and tokens already accounted for by `handwritten-numeric-claim`. |
-| `overloaded-term-no-warning` | warning | A term in `manifest.terms[*]` with `overloaded_warning` set, but the warning is absent both before the first use AND from the same sentence as the first use. |
+| `overloaded-term-no-warning` | warning | A term in `manifest.terms[*]` with `overloaded_warning` set, but the warning is absent both before the first use AND from the same sentence as the first use. A use is the term's `id` (case-sensitive), its `expansion`, or any spelling in an optional `match` list (case-insensitive). |
 | `forbidden-alias` | error | A manifest value used with one of its `label_aliases_forbidden` (e.g., calling `exact_accuracy` "accuracy"). Skips occurrences that are part of the canonical label. |
 
 ### HTML-only rules (require `--manifest`)

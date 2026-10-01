@@ -61,6 +61,12 @@
   `any` is unchanged).
 - In TeX, the fix suggested for a rendered-form `raw-generated-value` uses
   the stored value as the `\SciVal` snapshot, which is what TeX checks.
+- `overloaded-term-no-warning` recognizes a term by its `expansion` and an
+  optional `match` list as well as its `id` (slug ids rarely appear in
+  prose). Existing TeX reports may see new warnings from this rule; they
+  are warnings, not errors.
+- Worked-example tables (`data-sci-worked`) are fingerprinted against
+  `manifest.worked_examples[*].rows`.
 - HTML port of the end-to-end corpus (`tests/data/report.html`).
 - CI workflow for this package (`.github/workflows/tex-check.yaml`).
 

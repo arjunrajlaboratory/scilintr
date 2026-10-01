@@ -91,10 +91,11 @@ class FigureInfo:
 @dataclass(frozen=True)
 class TableInfo:
     start: int
-    data_id: str
+    data_id: str              # data[*] id, or worked_examples[*] id when kind == "worked"
     sha256: str | None
     content_sha256: str | None
     rows: str | None          # source text between sci-rows markers
+    kind: str = "data"        # "data" (data-sci-table) | "worked" (data-sci-worked)
 
 
 @dataclass(frozen=True)
@@ -307,14 +308,16 @@ class _Scanner(HTMLParser):
                     media=self._between_markers("sci-media", el.open_end, close_start),
                 )
             )
-        if el.tag == "table" and attrs.get("data-sci-table"):
+        if el.tag == "table" and (attrs.get("data-sci-table") or attrs.get("data-sci-worked")):
+            worked = bool(attrs.get("data-sci-worked"))
             self.tables.append(
                 TableInfo(
                     start=el.start,
-                    data_id=attrs.get("data-sci-table") or "",
+                    data_id=(attrs.get("data-sci-worked") if worked else attrs.get("data-sci-table")) or "",
                     sha256=attrs.get("data-sha256"),
                     content_sha256=attrs.get("data-content-sha256"),
                     rows=self._between_markers("sci-rows", el.open_end, close_start),
+                    kind="worked" if worked else "data",
                 )
             )
         if el.tag == "script":
@@ -392,7 +395,7 @@ class _Scanner(HTMLParser):
         label = data.strip()
         if label == "sci-media" and self._ancestor(lambda e: e.tag == "figure" and bool(e.attrs.get("data-sci-fig"))):
             self.region = "sci-media"
-        elif label == "sci-rows" and self._ancestor(lambda e: e.tag == "table" and bool(e.attrs.get("data-sci-table"))):
+        elif label == "sci-rows" and self._ancestor(lambda e: e.tag == "table" and bool(e.attrs.get("data-sci-table") or e.attrs.get("data-sci-worked"))):
             self.region = "sci-rows"
         elif label in ("/sci-media", "/sci-rows") and self.region == label[1:]:
             self.region = None
