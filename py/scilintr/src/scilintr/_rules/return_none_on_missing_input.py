@@ -51,27 +51,40 @@ def _own_nodes(func: ast.AST) -> Iterator[ast.AST]:
 
 
 def _returns_value(func: ast.AST) -> bool:
-    return any(
-        isinstance(n, ast.Return)
-        and n.value is not None
-        and not (isinstance(n.value, ast.Constant) and n.value.value is None)
-        for n in _own_nodes(func)
-    )
+    """Whether ``func`` produces values: a non-None ``return``, or any ``yield``
+    (a generator's bare ``return`` ends a value stream early)."""
+    for n in _own_nodes(func):
+        if isinstance(n, (ast.Yield, ast.YieldFrom)):
+            return True
+        if (
+            isinstance(n, ast.Return)
+            and n.value is not None
+            and not (isinstance(n.value, ast.Constant) and n.value.value is None)
+        ):
+            return True
+    return False
+
+
+def _is_placeholder_return(node: ast.AST, returns_value: bool) -> bool:
+    if not isinstance(node, ast.Return) or not is_degraded_default(node.value):
+        return False
+    is_none = node.value is None or (isinstance(node.value, ast.Constant) and node.value.value is None)
+    # A bare/None return counts only in a function that otherwise produces values.
+    return returns_value or not is_none
 
 
 def _degraded_return(body: list[ast.stmt], returns_value: bool) -> ast.Return | None:
-    """The guard body's ``return <placeholder>`` (after any logging), unless the
-    body raises. A bare/None return counts only if the function returns values."""
-    if any(isinstance(s, ast.Raise) for s in body):
-        return None
+    """The guard body's ``return <placeholder>`` — after any logging, possibly
+    nested in further conditions (``if allow_missing: return None``) — unless
+    the body raises unconditionally first."""
     for stmt in body:
-        if isinstance(stmt, ast.Return) and is_degraded_default(stmt.value):
-            is_none = stmt.value is None or (
-                isinstance(stmt.value, ast.Constant) and stmt.value.value is None
-            )
-            if is_none and not returns_value:
-                return None
-            return stmt
+        if isinstance(stmt, ast.Raise):
+            return None
+        if isinstance(stmt, _SCOPES):  # a nested def's returns are not this guard's
+            continue
+        for node in [stmt, *_own_nodes(stmt)]:
+            if _is_placeholder_return(node, returns_value):
+                return node
     return None
 
 

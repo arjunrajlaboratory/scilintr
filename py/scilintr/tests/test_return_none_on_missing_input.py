@@ -273,3 +273,61 @@ def test_missing_input_os_module_alias(has_finding):
 
 def test_missing_input_from_os_import_path(has_finding):
     assert has_finding(_guard("not path.isdir(p)", prelude="from os import path"), MISSING)
+
+
+def test_missing_input_flags_generator_bare_return(has_finding):
+    src = """
+def rows(p):
+    if not p.exists():
+        return
+    yield from parse(p)
+"""
+    assert has_finding(src, MISSING)
+
+
+def test_missing_input_flags_nested_conditional_return(has_finding):
+    src = """
+def load(p, allow_missing):
+    if not p.exists():
+        if allow_missing:
+            return None
+        raise FileNotFoundError(p)
+    return read(p)
+"""
+    assert has_finding(src, MISSING)
+
+
+def test_missing_input_unconditional_raise_passes(has_finding):
+    src = """
+def load(p):
+    if not p.exists():
+        raise FileNotFoundError(p)
+        return None
+    return read(p)
+"""
+    assert not has_finding(src, MISSING)
+
+
+def test_missing_input_binding_order_is_source_order(has_finding):
+    src = """
+def load(p):
+    if True:
+        isfile = custom
+    from os.path import isfile
+    if not isfile(p):
+        return None
+    return read(p)
+"""
+    assert has_finding(src, MISSING)
+
+
+def test_missing_input_ignores_return_in_nested_def(has_finding):
+    src = """
+def load(p):
+    if not p.exists():
+        def fallback():
+            return None
+        p = make(p)
+    return read(p)
+"""
+    assert not has_finding(src, MISSING)

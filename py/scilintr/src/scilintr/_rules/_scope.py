@@ -30,7 +30,7 @@ _SCOPES = (*_FUNCS, ast.ClassDef, ast.Module)
 class Imports:
     def __init__(self, tree: ast.AST) -> None:
         self._parent: dict[int, ast.AST] = {}
-        # scope id -> name -> [(lineno, origin | None)], in source order
+        # scope id -> name -> [(lineno, origin | None)]
         self._bindings: dict[int, dict[str, list[tuple[int, Origin | None]]]] = {}
         self._index(tree)
 
@@ -69,6 +69,8 @@ class Imports:
         entries = self._bindings.get(id(scope), {}).get(name)
         if not entries:
             return _UNBOUND
+        # ast.walk is breadth-first; order by source position, not visit order.
+        entries = sorted(entries, key=lambda e: e[0])
         before = [o for ln, o in entries if ln <= line]
         # A function body runs after the whole module is bound, so a use in a
         # nested scope may see a later module-level binding; fall back to the last.
