@@ -312,3 +312,94 @@ def test_percent_clash_does_not_hide_rendered_form_error():
 def test_more_document_definitions_not_flagged(definition):
     src = PRE.replace(r"\begin{document}", definition + "\n\\begin{document}") + r"\SciVal{\LocalVal}{3} x." + POST
     assert not [f for f in lint_tex(src, manifest=MANIFEST) if f.rule == "unknown-value-id"]
+
+
+# -------------------- review round 2 --------------------
+
+
+def _fix_of(src_body, manifest):
+    from scitexlintr import apply_fixes
+
+    src = PRE + src_body + POST
+    found = [f for f in lint_tex(src, manifest=manifest) if f.rule == "snapshot-mismatch"]
+    assert len(found) == 1
+    fixed, n = apply_fixes(src, found)
+    assert n == 1
+    return fixed
+
+
+def test_write_keeps_rendered_style_for_display_entry():
+    m = parse_manifest({"numbers": [{"id": "pct_disp", "value": 0.5, "display": r"50\%"}]})
+    assert r"\SciVal{\PCTDisp}{50\%}" in _fix_of(r"\SciVal{\PCTDisp}{40\%} x.", m)
+
+
+def test_write_keeps_rendered_style_for_decimal_entry():
+    assert r"\SciVal{\MeanRatio}{7.48}" in _fix_of(r"\SciVal{\MeanRatio}{7.40} x.", MANIFEST)
+
+
+def test_write_keeps_raw_style_for_decimal_entry():
+    assert r"\SciVal{\MeanRatio}{7.47712}" in _fix_of(r"\SciVal{\MeanRatio}{7.4} x.", MANIFEST)
+
+
+def test_unrenderable_unit_stored_value_snapshot_passes_and_problem_reported_once():
+    m = parse_manifest({"numbers": [{"id": "x", "value": 0.5, "unit": "pct"}]})
+    found = [f for f in lint(r"\SciVal{\X}{0.5} a \SciVal{\X}{0.5} b \SciVal{\X}{0.4} c.", manifest=m)
+             if f.rule == "snapshot-mismatch"]
+    assert len(found) == 1 and "unsupported unit" in found[0].message
+
+
+@pytest.mark.parametrize("snapshot", [r"9.65e1\%", r"0965e-1\%", r"096.5\%"])
+def test_rendered_match_does_not_accept_arbitrary_numeric_spellings(snapshot):
+    assert "snapshot-mismatch" in rules_of(rf"\SciVal{{\FracClaimsDated}}{{{snapshot}}} dated.")
+
+
+@pytest.mark.parametrize(
+    "definition",
+    [r"\expandafter\newcommand\csname LocalVal\endcsname{3}", r"\csdef{LocalVal}{3}",
+     r"\newrobustcmd{\LocalVal}{3}", r"\NewExpandableDocumentCommand{\LocalVal}{}{3}",
+     r"\DeclareMathOperator{\LocalVal}{lv}", r"\newcommandx{\LocalVal}{3}"],
+)
+def test_even_more_document_definitions_not_flagged(definition):
+    src = PRE.replace(r"\begin{document}", definition + "\n\\begin{document}") + r"\SciVal{\LocalVal}{3} x." + POST
+    assert not [f for f in lint_tex(src, manifest=MANIFEST) if f.rule == "unknown-value-id"]
+
+
+def test_macro_defined_in_input_file_not_flagged(tmp_path):
+    from scitexlintr import lint_file
+
+    (tmp_path / "build").mkdir()
+    (tmp_path / "build" / "macros.tex").write_text(r"\newcommand{\LocalVal}{3}" + "\n")
+    main = tmp_path / "main.tex"
+    main.write_text(PRE.replace(r"\begin{document}", "\\input{build/macros}\n\\begin{document}")
+                    + r"\SciVal{\LocalVal}{3} x. \SciVal{\Gone}{1} y." + POST)
+    import json
+    mpath = tmp_path / "m.json"
+    mpath.write_text(json.dumps({"numbers": [{"id": "n_pairs", "value": 97}]}))
+    found = [f for f in lint_file(main, manifest_path=mpath) if f.rule == "unknown-value-id"]
+    assert [("Gone" in f.message) for f in found] == [True]
+
+
+def test_cli_pools_definitions_across_files(tmp_path, capsys):
+    import json
+
+    from scitexlintr.cli import main as cli_main
+
+    (tmp_path / "main.tex").write_text(
+        PRE.replace(r"\begin{document}", "\\newcommand{\\LocalCount}{12}\n\\begin{document}")
+        + "\\input{chapter1}" + POST)
+    (tmp_path / "chapter1.tex").write_text(r"We saw \SciVal{\LocalCount}{12} things." + "\n")
+    mpath = tmp_path / "m.json"
+    mpath.write_text(json.dumps({"numbers": [{"id": "n_pairs", "value": 97}]}))
+    cli_main([str(tmp_path / "main.tex"), str(tmp_path / "chapter1.tex"),
+              f"--manifest={mpath}", "--rules=unknown-value-id"])
+    assert "unknown-value-id" not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("end", [
+    "% ANALYSIS_OK_END[a] end of table 3",
+    "% ANALYSIS_OK_END [a]",
+    "% ANALYSIS_OK_END -- done",
+])
+def test_region_end_free_text_forms(end):
+    ws = find_waivers(f"% ANALYSIS_OK_BEGIN[a]: why\nx\n{end}\n")
+    assert len(ws) == 1 and ws[0].end_line == 3

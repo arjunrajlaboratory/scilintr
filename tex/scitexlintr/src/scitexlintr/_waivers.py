@@ -39,7 +39,8 @@ _EXPL = r":\s*(?P<explanation>\S.*?)\s*$"
 # Bodies of a comment (after `%`, `<!--`, `//` or `/*`), matched at its start.
 _LINE_BODY_RE = re.compile(r"ANALYSIS_OK\[" + _CATS + r"\]" + _EXPL, re.S)
 _BEGIN_BODY_RE = re.compile(r"ANALYSIS_OK_BEGIN\[" + _CATS + r"\]" + _EXPL, re.S)
-_END_BODY_RE = re.compile(r"ANALYSIS_OK_END(?:\[" + _CATS + r"\])?(?:\s*:.*|\s*)$", re.S)
+# END: optional ``[rules]`` (a space before it is fine), then any trailing text.
+_END_BODY_RE = re.compile(r"ANALYSIS_OK_END(?![\w-])(?:\s*\[" + _CATS + r"\])?", re.S)
 
 DEFAULT_WINDOW = 4
 

@@ -126,7 +126,10 @@ def rendered_tex(entry) -> Expected | None:
     return None
 
 
-_TEX_SPACING_RE = re.compile(r"\s+|~|\\[,;: ]|\\thinspace\b")
+# TeX spacing that may sit inside a number-with-unit (``96.5\\,\\%``).
+TEX_SPACING = r"[ \t\n~]|\\[,;: ]|\\thinspace\b"
+_TEX_SPACING_RE = re.compile(TEX_SPACING)
+_PLAIN_NUMBER_RE = re.compile(r"-?\d+(?:\.\d+)?")
 
 
 def tex_snapshot_matches_rendered(snapshot: str, rendered: str) -> bool:
@@ -140,10 +143,32 @@ def tex_snapshot_matches_rendered(snapshot: str, rendered: str) -> bool:
     suffix = "\\%" if want.endswith("\\%") else ""
     if suffix and not snap.endswith(suffix):
         return False
-    try:
-        return Decimal(snap[: len(snap) - len(suffix)]) == Decimal(want[: len(want) - len(suffix)])
-    except InvalidOperation:
+    snap_n, want_n = snap[: len(snap) - len(suffix)], want[: len(want) - len(suffix)]
+    if not (_PLAIN_NUMBER_RE.fullmatch(snap_n) and _PLAIN_NUMBER_RE.fullmatch(want_n)):
         return False
+    return _drop_trailing_zeros(snap_n) == _drop_trailing_zeros(want_n)
+
+
+def _drop_trailing_zeros(number: str) -> str:
+    return number.rstrip("0").rstrip(".") if "." in number else number
+
+
+def looks_rendered(snapshot: str, rendered: str) -> bool:
+    """Whether a (stale) snapshot is written in the rendered style rather than
+    as the stored value — so ``--write`` can keep the author's choice. A
+    percent rendering ⇒ the snapshot has ``\\%``; a plain-number rendering ⇒
+    the snapshot has the same number of decimals; any other ``display`` ⇒
+    the snapshot is not a plain number."""
+    snap = _TEX_SPACING_RE.sub("", snapshot)
+    want = _TEX_SPACING_RE.sub("", rendered)
+    if want.endswith("\\%"):
+        return snap.endswith("\\%")
+    if _PLAIN_NUMBER_RE.fullmatch(want):
+        if not _PLAIN_NUMBER_RE.fullmatch(snap):
+            return False
+        decimals = lambda n: len(n.partition(".")[2])  # noqa: E731
+        return decimals(snap) == decimals(want)
+    return not _PLAIN_NUMBER_RE.fullmatch(snap)
 
 
 def expected_html(entry, precision_override: int | None = None) -> Expected:

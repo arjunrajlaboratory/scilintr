@@ -326,7 +326,7 @@ new_source, n_applied = apply_fixes(source_string, findings)
 |---|---|---|
 | `snapshot-mismatch` | error | `\SciVal{\Macro}{stale}` where the snapshot disagrees with the manifest value. Auto-fixable with `--write` (string values are TeX-escaped before writing; fixes that would erase a TeX comment inside the snapshot brace are skipped). |
 | `raw-generated-value` | error | A literal `48` or `"treated versus control"` in prose that matches a manifest value. Handles scientific notation (`1e-8` and `1e-08`) and comma-grouped integers (`15,122`). A percent-suffixed literal (`97.0\%`) that equals an integer value (usually a count such as `97`) is only a **warning**, since it is most often a coincidental collision. |
-| `unknown-value-id` | error | `\SciVal{\NSmaples}{48}` whose macro no manifest entry generates. This usually happens when an entry is removed from the manifest but its wrapper stays in the report. Every other rule skips such a wrapper, and `pdflatex` stops on the undefined control sequence. Macros the document defines itself (`\newcommand`, `\def`) are not flagged. HTML: `<span data-sci-val="n_smaples">`. |
+| `unknown-value-id` | error | `\SciVal{\NSmaples}{48}` whose macro no manifest entry generates. This usually happens when an entry is removed from the manifest but its wrapper stays in the report. Every other rule skips such a wrapper, and `pdflatex` stops on the undefined control sequence. Macros the report defines by hand (`\newcommand`, `\def`, `\let`, `\csdef`, …) are not flagged, whether they're in the file itself, in a file it `\input`s or `\include`s, or in another file linted in the same run. HTML: `<span data-sci-val="n_smaples">`. |
 | `bare-generated-macro` | warning | `\NSamples` used directly in prose without a `\SciVal` wrapper — fresh but unreviewable. Skips structural-macro args (`\label`, `\ref`, `\cite`, `\input`, …) just like the prose mask does for every other rule. |
 | `unwrapped-threshold` | error | `FDR < 0.05` in prose when `\FDRThreshold` exists in the manifest. Recognizes `<`, `>`, `<=`, `>=`, `\le`, `\leq`, `\ge`, `\geq`, `\ll`, `\gg`, and Unicode `≤ ≥ ≪ ≫`; numbers include scientific notation. |
 | `unfingerprinted-figure` | error | `\includegraphics{...}` referencing a path not in `manifest.figures[*]`. Forgiving in one direction: a tex-side extensionless path (`figures/foo`) matches a manifest-side `figures/foo.pdf`. |
@@ -394,7 +394,7 @@ How a waiver applies:
   The BEGIN line needs an explanation. `ANALYSIS_OK_END[rule]` closes the
   innermost open region that names that rule. A bare `% ANALYSIS_OK_END`
   closes the innermost region. Either form may carry trailing text
-  (`: end of table 3`). A BEGIN with no END waives nothing, so a missing
+  (`end of table 3`). A BEGIN with no END waives nothing, so a missing
   END shows up as findings instead of silently waiving the rest of the file.
   To waive a rule for a whole file, put one region around the document body.
   HTML uses the same syntax inside `<!-- … -->` comments.

@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Callable
 
+from scitexlintr._display import TEX_SPACING
 from scitexlintr._parser import (
     MacroCall,
     build_prose_mask,
@@ -27,6 +28,9 @@ class TexDoc:
     prose_mask: bytearray
     lookup: Callable[[int], tuple[int, int]]
     fmt: str = "tex"
+    # Macros defined outside this source (\input files, sibling files of a
+    # multi-file run); see ``_macros``.
+    external_macros: frozenset[str] = frozenset()
 
     # Cached views (populated lazily by rules that need them).
     _calls_by_name: dict[str, tuple[MacroCall, ...]] | None = field(default=None, repr=False)
@@ -110,7 +114,7 @@ def skip_inline_space(text: str, i: int) -> int:
     return i
 
 
-_TEX_UNIT_SPACE_RE = re.compile(r"(?:[ \t~]|\\[,;: ]|\\thinspace\b\s*)*")
+_TEX_UNIT_SPACE_RE = re.compile(f"(?:{TEX_SPACING})*")
 
 
 def skip_unit_space(text: str, i: int, fmt: str = "tex") -> int:

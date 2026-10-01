@@ -8,16 +8,17 @@ transform).
 TeX: ``\\SciVal{\\NSmaples}{48}`` names a macro no manifest entry generates —
 typically left behind after an entry was un-registered. Every other rule
 skips it, and ``pdflatex`` then dies on an undefined control sequence.
-Macros the document defines itself (``\\newcommand`` / ``\\def``) compile and
-are not flagged; a macro from an ``\\input`` file is not visible here.
+Macros the report defines by hand compile and are not flagged: in the file
+itself, in files it ``\\input``\\ s (``lint_file``), or in any file of the same
+CLI run (see ``_macros``).
 """
 
 from __future__ import annotations
 
-import re
 
 from scitexlintr._doc import extract_macro_ref
 from scitexlintr._finding import Finding
+from scitexlintr._macros import defined_macros
 from scitexlintr._manifest import Manifest
 from scitexlintr._parser import WRAPPER_MACROS
 from scitexlintr._rules._base import Rule
@@ -48,23 +49,9 @@ def _check(doc, manifest: Manifest | None) -> list[Finding]:
     return findings
 
 
-# `\newcommand{\Foo}`, `\renewcommand*\Foo`, `\providecommand`, `\def\Foo`, …
-_DEFINITION_RE = re.compile(
-    r"\\(?:(?:re|provide)?newcommand|providecommand|DeclareRobustCommand"
-    r"|(?:New|Renew|Provide|Declare)DocumentCommand|NewCommandCopy)\*?\s*\{?\s*\\([A-Za-z@]+)"
-    r"|\\(?:[egx]?def|let)\s*\\([A-Za-z@]+)"
-)
-
-
-def _document_defined_macros(text: str) -> set[str]:
-    """Macros the document defines itself. They compile, so they are not
-    unknown — though their snapshots stay unchecked (no manifest entry)."""
-    return {m.group(1) or m.group(2) for m in _DEFINITION_RE.finditer(text)}
-
-
 def _check_tex(doc, manifest: Manifest) -> list[Finding]:
     findings: list[Finding] = []
-    local = _document_defined_macros(doc.stripped)
+    local = defined_macros(doc.stripped) | getattr(doc, "external_macros", frozenset())
     for wrapper_name in sorted(WRAPPER_MACROS):
         for call in doc.calls(wrapper_name):
             if not call.args:

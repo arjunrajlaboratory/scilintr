@@ -19,6 +19,7 @@ import html
 from scitexlintr._display import (
     expected_html,
     parse_precision,
+    looks_rendered,
     rendered_tex,
     tex_snapshot_matches_rendered,
 )
@@ -37,6 +38,7 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
     if doc.fmt == "html":
         return _check_html(doc, manifest)
     findings: list[Finding] = []
+    unrenderable: set[str] = set()
     for wrapper_name in sorted(WRAPPER_MACROS):
         for call in doc.calls(wrapper_name):
             if len(call.args) < 2:
@@ -55,24 +57,25 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
             snap_arg = call.args[1]
             snap_text = snap_arg.text
             line, col = doc.lookup(snap_arg.start)
+            if values_equal_as_snapshot(entry.value, snap_text):
+                continue
             rendered = rendered_tex(entry)
             if rendered is not None and rendered.problem is not None:
-                findings.append(Finding(
-                    rule=CODE, line=line, col=col, severity="error",
-                    message=f"cannot check snapshot for id={entry.id}: {rendered.problem}",
-                ))
-                continue
-            if values_equal_as_snapshot(entry.value, snap_text):
+                # One manifest defect, one finding — not one per wrapper.
+                if entry.id not in unrenderable:
+                    unrenderable.add(entry.id)
+                    findings.append(Finding(
+                        rule=CODE, line=line, col=col, severity="error",
+                        message=f"cannot check snapshot for id={entry.id}: {rendered.problem}",
+                    ))
                 continue
             # A unit / display entry may also be snapshotted as it renders
             # (``96.5\%`` for a stored 0.9653) — what the PDF shows.
             if rendered is not None and tex_snapshot_matches_rendered(snap_text, rendered.text):
                 continue
-            # --write keeps the author's style: a rendered-looking snapshot
-            # (it has the unit's ``\%``) is rewritten to the rendered form.
-            keep_rendered = (
-                rendered is not None and entry.unit == "percent" and "\\%" in snap_text
-            )
+            # --write keeps the author's style: a stale snapshot written in the
+            # rendered style is rewritten to the rendered form.
+            keep_rendered = rendered is not None and looks_rendered(snap_text, rendered.text)
             replacement = rendered.text if keep_rendered else str(_format_for_fix(entry.value))
             renders_as = (
                 f", which renders as {_quote(rendered.text)}" if rendered is not None else ""
