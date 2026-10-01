@@ -79,6 +79,13 @@
 - An HTML value span whose manifest entry has no value is an error (the
   span's text is excluded from prose, so it would otherwise vouch for any
   number); a character reference that encodes a digit counts as that digit.
+- A root `<svg>` outside a registered region is unregistered media unless
+  it is a declared diagram, an interactive figure's chart, or marked
+  `data-sci-icon`; `data-sci-live` readouts are exempt only inside
+  interactive figures; SVG `<title>` text is prose.
+- Wrapper text keeps line breaks and block boundaries as separation
+  (`12<br>34` is not `1234`); duplicate attributes are read first-wins, as
+  a browser does.
 - HTML port of the end-to-end corpus (`tests/data/report.html`).
 - CI workflow for this package (`.github/workflows/tex-check.yaml`).
 

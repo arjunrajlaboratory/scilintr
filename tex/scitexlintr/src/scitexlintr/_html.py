@@ -243,7 +243,9 @@ class _Scanner(HTMLParser):
         start = self._offset()
         raw = self.get_starttag_text() or ""
         open_end = start + len(raw)
-        attrs = {k: v for k, v in attr_list}
+        attrs: dict[str, str | None] = {}
+        for k, v in attr_list:
+            attrs.setdefault(k, v)  # a browser keeps the first of duplicate attributes
 
         if tag == "body" and self.body_start is None:
             self.body_start = open_end
@@ -257,11 +259,11 @@ class _Scanner(HTMLParser):
             # An inline <svg> is a drawing; its data live in attributes no prose
             # rule reads. Outside a registered region it must be a declared
             # diagram, an interactive figure's own chart, or an icon.
-            # (aria-hidden alone proves nothing: it hides content from assistive
-            # technology, not from readers.) An icon is an SVG inside a control.
+            # Icons are declared, not inferred: aria-hidden only hides content
+            # from assistive technology, and a link can wrap a full plot.
             fig = self._ancestor(lambda e: e.tag == "figure")
             exempt = (
-                self._ancestor(lambda e: e.tag in ("button", "a")) is not None
+                "data-sci-icon" in attrs
                 or (fig is not None and ("data-sci-diagram" in fig.attrs or "data-sci-interactive" in fig.attrs))
             )
             self.media.append(MediaRef(start, "svg", "", self.region == "sci-media", False, exempt))
@@ -310,7 +312,10 @@ class _Scanner(HTMLParser):
             key = attrs.get("data-sci-val" if kind == "val" else "data-sci-text") or ""
             inner = self.source[el.open_end:close_start]
             has_markup = "<" in inner
-            text = html.unescape(re.sub(r"<!--.*?-->|<[^>]*>", "", inner, flags=re.S))
+            # Line breaks and block boundaries render as separation, so they
+            # become spaces ("12<br>34" is "12 34", not "1234"); inline tags vanish.
+            separated = re.sub(r"<(?:br|hr|/?(?:p|div|li|tr|td|th|h[1-6]|ul|ol|table|section|blockquote))\b[^>]*>", " ", inner, flags=re.I)
+            text = html.unescape(re.sub(r"<!--.*?-->|<[^>]*>", "", separated, flags=re.S))
             self.wrappers.append(
                 Wrapper(kind, key, attrs.get("data-precision"), el.start, el.open_end, close_start,
                         " ".join(text.split()), has_markup)

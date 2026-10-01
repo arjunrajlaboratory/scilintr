@@ -332,7 +332,10 @@ flags undeclared `<figure>` elements, stale `data-sha256` attributes, inlined
 media edited after sync, and every media-embedding element (`<img>`, SVG
 `<image>`, `<source>`, `<video>`, `<audio>`, `<iframe>`, `<object>`,
 `<embed>`, `<canvas>`) outside a registered figure's `sci-media` region — a
-`<canvas>` may also sit inside an interactive figure.
+`<canvas>` may also sit inside an interactive figure. A root `<svg>` outside
+a registered region must be a declared diagram (`data-sci-diagram` figure),
+an interactive figure's chart, or explicitly marked `data-sci-icon` (button
+and link icons); a plot's data live in attributes no prose rule reads.
 
 ### Manifest-free rules (always on)
 

@@ -104,7 +104,7 @@ def test_a_bare_svg_plot_outside_a_figure_is_unregistered_media():
     m = parse_manifest({"numbers": []})
     found = lint_html(page('<div><svg viewBox="0 0 100 100"><path d="M0 0L100 100"/></svg></div>'), manifest=m)
     assert rules(found) == ["unfingerprinted-figure"]
-    icon = '<button><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2v11l9-5z"/></svg>Present</button>'
+    icon = '<button><svg data-sci-icon viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2v11l9-5z"/></svg>Present</button>'
     assert lint_html(page(icon), manifest=m) == []
     diagram = '<figure data-sci-diagram><svg viewBox="0 0 4 4"><text>Input</text></svg></figure>'
     assert lint_html(page(diagram), manifest=m) == []
@@ -116,10 +116,31 @@ def test_aria_hidden_alone_does_not_exempt_a_plot_but_a_control_icon_is_exempt()
     m = parse_manifest({"numbers": []})
     plot = '<div><svg aria-hidden="true" viewBox="0 0 100 100"><path d="M0 0L100 100"/></svg></div>'
     assert rules(lint_html(page(plot), manifest=m)) == ["unfingerprinted-figure"]
-    icon = '<a href="#x"><svg viewBox="0 0 16 16"><path d="M4 2v11l9-5z"/></svg>Next</a>'
+    icon = '<a href="#x"><svg data-sci-icon viewBox="0 0 16 16"><path d="M4 2v11l9-5z"/></svg>Next</a>'
     assert lint_html(page(icon), manifest=m) == []
 
 
 def test_svg_title_text_in_a_diagram_is_prose():
     body = "<figure data-sci-diagram><svg><title>Result 999</title><text>Input</text></svg></figure>"
     assert rules(lint_html(page(body))) == ["unsourced-numeric-token"]
+
+
+# -- Codex re-review on daeb36a --------------------------------------------------
+
+def test_only_explicitly_marked_icons_are_exempt():
+    m = parse_manifest({"numbers": []})
+    linked_plot = '<a href="#full"><svg viewBox="0 0 100 100"><path d="M0 0L100 100"/></svg></a>'
+    assert rules(lint_html(page(linked_plot), manifest=m)) == ["unfingerprinted-figure"]
+    icon = '<button><svg data-sci-icon viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2v11l9-5z"/></svg>Play</button>'
+    assert lint_html(page(icon), manifest=m) == []
+
+
+def test_line_breaks_inside_a_wrapper_separate_its_text():
+    m = parse_manifest({"numbers": [{"id": "x", "value": 1234}]})
+    assert rules(lint_html(page('<p><span data-sci-val="x">12<br>34</span></p>'), manifest=m)) == ["snapshot-mismatch"]
+    assert lint_html(page('<p><span data-sci-val="x">1<b>2</b>34</span></p>'), manifest=m) == []
+
+
+def test_duplicate_attributes_use_the_first_like_a_browser():
+    m = parse_manifest({"numbers": [{"id": "a", "value": 1}, {"id": "b", "value": 2}]})
+    assert rules(lint_html(page('<p><span data-sci-val="a" data-sci-val="b">2</span></p>'), manifest=m)) == ["snapshot-mismatch"]
