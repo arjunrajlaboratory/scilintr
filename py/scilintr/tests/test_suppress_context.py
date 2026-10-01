@@ -369,3 +369,15 @@ def test_suppress_context_respects_rebinding(has_finding):
 
 def test_suppress_context_module_import_visible_in_function(has_finding):
     assert has_finding(MODULE_IMPORT_USED_IN_FUNCTION, RULE)
+
+
+def test_suppress_context_binding_order_is_source_order(has_finding):
+    src = """
+if True:
+    suppress = custom
+from contextlib import suppress
+
+with suppress(Exception):
+    x()
+"""
+    assert has_finding(src, RULE)
