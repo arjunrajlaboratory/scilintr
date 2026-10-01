@@ -5,8 +5,10 @@
 ### Added
 
 - `unknown-value-id` now covers TeX: `\SciVal{\Macro}{…}` / `\SciText` whose
-  macro no manifest entry generates (and the document doesn't define itself)
-  is an error. Without it, the wrapper escaped every rule and broke `pdflatex`.
+  macro no manifest entry generates is an error. Without it, the wrapper
+  escaped every rule and broke `pdflatex`. Macros the report defines by hand
+  are skipped, whether in the file, in files it `\input`s or `\include`s, or
+  in another file of the same CLI run.
 - Region waivers: `% ANALYSIS_OK_BEGIN[rule]: why` … `% ANALYSIS_OK_END[rule]`
   (TeX, HTML comments, JS comments). A BEGIN with no END waives nothing.
 - Multi-rule waivers: `% ANALYSIS_OK[rule-a, rule-b]: why`.
