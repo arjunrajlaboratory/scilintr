@@ -15,7 +15,7 @@ import ast
 
 from scilintr._finding import Finding
 from scilintr._rules._base import Rule
-from scilintr._rules.return_none_on_missing_input import degraded_return
+from scilintr._rules.return_none_on_missing_input import compound, guarded_returns
 
 CODE = "return-none-on-empty-input"
 MESSAGE = (
@@ -38,6 +38,10 @@ def _is_const(expr: ast.expr, value: int) -> bool:
     return isinstance(expr, ast.Constant) and type(expr.value) is int and expr.value == value
 
 
+def _is_none(expr: ast.expr) -> bool:
+    return isinstance(expr, ast.Constant) and expr.value is None
+
+
 def _is_empty_test(test: ast.expr) -> bool:
     # `x.empty` (pandas)
     if isinstance(test, ast.Attribute) and test.attr == "empty":
@@ -54,37 +58,32 @@ def _is_empty_test(test: ast.expr) -> bool:
         return _is_len_call(inner)
     if isinstance(test, ast.Compare) and len(test.ops) == 1:
         left, op, right = test.left, test.ops[0], test.comparators[0]
-        # `x is None`
-        if isinstance(op, ast.Is) and isinstance(right, ast.Constant) and right.value is None:
+        # `x is None`, `None is x`, `x == None`
+        if isinstance(op, (ast.Is, ast.Eq)) and (_is_none(right) or _is_none(left)):
             return True
-        # `len(x) == 0`, `0 == len(x)`, `len(x) < 1`
+        # `len(x) == 0`, `0 == len(x)`, `len(x) < 1`, `len(x) <= 0`
         if isinstance(op, ast.Eq):
             return (_is_len_call(left) and _is_const(right, 0)) or (
                 _is_const(left, 0) and _is_len_call(right)
             )
         if isinstance(op, ast.Lt):
             return _is_len_call(left) and _is_const(right, 1)
+        if isinstance(op, ast.LtE):
+            return _is_len_call(left) and _is_const(right, 0)
     return False
 
 
 def _check(tree: ast.AST, source: str, filename: str) -> list[Finding]:
-    findings: list[Finding] = []
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.If) or not _is_empty_test(node.test):
-            continue
-        ret = degraded_return(node.body)
-        if ret is None:
-            continue
-        findings.append(
-            Finding(
-                rule=CODE,
-                line=ret.lineno,
-                col=ret.col_offset,
-                message=MESSAGE,
-                severity="structured-comment",
-            )
+    return [
+        Finding(
+            rule=CODE,
+            line=r.lineno,
+            col=r.col_offset,
+            message=MESSAGE,
+            severity="structured-comment",
         )
-    return findings
+        for r in guarded_returns(tree, compound(_is_empty_test))
+    ]
 
 
 rule = Rule(code=CODE, check=_check, opt_in=True)

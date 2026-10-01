@@ -20,7 +20,11 @@ import argparse
 import sys
 
 from scilintr import lint_paths
-from scilintr._rules import ALL_RULES
+from scilintr._rules import ALL_CROSS_FILE_RULES, ALL_RULES
+
+
+def _codes(arg: str | None) -> list[str] | None:
+    return [c.strip() for c in arg.split(",") if c.strip()] if arg else None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -50,14 +54,17 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    rules = [r.strip() for r in args.rules.split(",")] if args.rules else None
-    if args.enable:
-        base = rules if rules is not None else [r.code for r in ALL_RULES if not r.opt_in]
-        rules = base + [r.strip() for r in args.enable.split(",")]
+    rules = _codes(args.rules)
+    enable = _codes(args.enable)
+    known = {r.code for r in ALL_RULES} | {r.code for r in ALL_CROSS_FILE_RULES}
+    unknown = sorted((set(rules or ()) | set(enable or ())) - known)
+    if unknown:
+        parser.error(f"unknown rule code(s): {', '.join(unknown)}")
 
     findings = lint_paths(
         args.paths,
         rules=rules,
+        enable=enable,
         respect_waivers=not args.no_waivers,
     )
 

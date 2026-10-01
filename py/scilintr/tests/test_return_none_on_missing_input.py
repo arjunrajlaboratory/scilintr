@@ -162,3 +162,82 @@ def test_cli_enable_adds_opt_in_rule_to_defaults(tmp_path, capsys):
     main(["--enable", EMPTY, str(f)])
     enabled_out = capsys.readouterr().out
     assert EMPTY in enabled_out and "silent-pass" in enabled_out
+
+
+# -------------------- review round 2 --------------------
+
+
+def test_missing_input_flags_log_then_return(has_finding):
+    src = """
+import os
+
+def load(p):
+    if not os.path.exists(p):
+        print("missing", p)
+        return None
+    return read(p)
+"""
+    assert has_finding(src, MISSING)
+
+
+def test_missing_input_log_then_raise_passes(has_finding):
+    src = """
+import os
+
+def load(p):
+    if not os.path.exists(p):
+        log.error("missing")
+        raise FileNotFoundError(p)
+    return read(p)
+"""
+    assert not has_finding(src, MISSING)
+
+
+@pytest.mark.parametrize("test", ["not os.path.exists(a) or not os.path.exists(b)", "not os.path.isfile(a) and not os.path.isfile(b)"])
+def test_missing_input_flags_compound_guards(has_finding, test):
+    assert has_finding(_guard(test), MISSING)
+
+
+def test_missing_input_ignores_procedure_early_return(has_finding):
+    src = """
+import os
+
+def rm(p):
+    if not os.path.isfile(p):
+        return
+    os.remove(p)
+"""
+    assert not has_finding(src, MISSING)
+
+
+def test_missing_input_ignores_tarinfo_isfile(has_finding):
+    src = """
+def member_text(tarinfo, tf):
+    if not tarinfo.isfile():
+        return None
+    return tf.extractfile(tarinfo).read()
+"""
+    assert not has_finding(src, MISSING)
+
+
+@pytest.mark.parametrize("test", ["df is None or df.empty", "df == None", "None is df", "len(x) <= 0"])
+def test_empty_input_flags_more_spellings(test):
+    assert any(f.rule == EMPTY for f in lint_code(_guard(test), rules=[EMPTY]))
+
+
+def test_engine_enable_adds_opt_in_to_defaults():
+    findings = lint_code(_guard("df is None") + "\ntry:\n    x()\nexcept Exception:\n    pass\n", enable=[EMPTY])
+    rules = {f.rule for f in findings}
+    assert EMPTY in rules and "silent-pass" in rules
+
+
+@pytest.mark.parametrize("flag", ["--enable", "--rules"])
+def test_cli_rejects_unknown_rule_codes(tmp_path, capsys, flag):
+    from scilintr.cli import main
+
+    f = tmp_path / "a.py"
+    f.write_text("x = 1\n")
+    with pytest.raises(SystemExit) as exc:
+        main([flag, "return-none-on-empty-inputs", str(f)])
+    assert exc.value.code == 2
+    assert "return-none-on-empty-inputs" in capsys.readouterr().err

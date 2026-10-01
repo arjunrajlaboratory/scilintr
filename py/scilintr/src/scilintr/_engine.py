@@ -11,11 +11,14 @@ from scilintr._rules import ALL_CROSS_FILE_RULES, ALL_RULES
 from scilintr._waivers import find_waivers, is_waived
 
 
-def _select_rules(rules: list[str] | None) -> list:
-    """All default rules, or exactly the named ones (which may include opt-in rules)."""
+def _select_rules(rules: list[str] | None, enable: list[str] | None = None) -> list:
+    """All default (non-opt-in) rules, or exactly the named ones — plus any
+    ``enable``d rules (which may be opt-in)."""
+    wanted = set(enable or ())
     if rules is None:
-        return [r for r in ALL_RULES if not r.opt_in]
-    return [r for r in ALL_RULES if r.code in rules]
+        return [r for r in ALL_RULES if not r.opt_in or r.code in wanted]
+    wanted.update(rules)
+    return [r for r in ALL_RULES if r.code in wanted]
 
 
 def lint_code(
@@ -24,16 +27,18 @@ def lint_code(
     filename: str = "<test>",
     rules: list[str] | None = None,
     respect_waivers: bool = True,
+    enable: list[str] | None = None,
 ) -> list[Finding]:
     """Lint a single Python source string.
 
-    ``rules`` restricts checks to the listed rule codes. ``respect_waivers=False``
+    ``rules`` restricts checks to the listed rule codes; ``enable`` adds
+    (opt-in) rules on top of the default set or of ``rules``. ``respect_waivers=False``
     disables ``ANALYSIS_OK`` suppression — useful for audits that want to see what
     has been waivered.
     """
     tree = ast.parse(source, filename=filename)
 
-    selected = _select_rules(rules)
+    selected = _select_rules(rules, enable)
 
     findings: list[Finding] = []
     for rule in selected:
@@ -54,6 +59,7 @@ def lint_paths(
     *,
     rules: list[str] | None = None,
     respect_waivers: bool = True,
+    enable: list[str] | None = None,
 ) -> list[Finding]:
     """Lint one or more files / directories, running both per-file and cross-file rules.
 
@@ -80,7 +86,7 @@ def lint_paths(
         parsed[str(path)] = (tree, source)
 
     # Per-file rules
-    selected = _select_rules(rules)
+    selected = _select_rules(rules, enable)
     for filename, (tree, source) in parsed.items():
         for rule in selected:
             for f in rule.check(tree, source, filename):
