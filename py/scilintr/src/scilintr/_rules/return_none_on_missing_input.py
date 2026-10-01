@@ -6,7 +6,7 @@ through downstream merges and the analysis silently runs on a smaller frame.
 Every file-existence spelling counts: the ``.exists()`` method, ``os.path``'s
 ``exists`` / ``isfile`` / ``isdir`` (called through ``os.path`` or an alias, or
 imported bare), and pathlib's ``is_file()`` / ``is_dir()``; guards may be
-combined with ``or`` / ``and``. The guard body may log before returning; the
+combined with other conditions by ``or`` / ``and``. The guard body may log before returning; the
 returned side is any degraded placeholder (``None``, empty container, ``0``,
 ``NaN``) — the same definition the silent-fallback-value rules use. A bare
 ``return`` only counts in a function that otherwise returns a value: an
@@ -24,6 +24,7 @@ from collections.abc import Callable, Iterator
 from scilintr._finding import Finding
 from scilintr._rules._base import Rule
 from scilintr._rules._degraded_default import is_degraded_default
+from scilintr._rules._scope import Imports
 
 CODE = "return-none-on-missing-input"
 MESSAGE = (
@@ -75,12 +76,13 @@ def _degraded_return(body: list[ast.stmt], returns_value: bool) -> ast.Return | 
 
 
 def compound(pred: Callable[[ast.expr], bool]) -> Callable[[ast.expr], bool]:
-    """Lift a guard predicate over ``or`` (any operand) and ``and`` (every operand)."""
+    """Lift a guard predicate over ``or`` / ``and``: the branch is a guard if any
+    operand is. ``not p.exists() and allow_missing`` still runs only when the
+    input is missing, and ``not p.exists() or force`` runs whenever it is."""
 
     def _test(test: ast.expr) -> bool:
         if isinstance(test, ast.BoolOp):
-            parts = [_test(v) for v in test.values]
-            return any(parts) if isinstance(test.op, ast.Or) else all(parts)
+            return any(_test(v) for v in test.values)
         return pred(test)
 
     return _test
@@ -101,36 +103,8 @@ def guarded_returns(tree: ast.AST, is_guard: Callable[[ast.expr], bool]) -> list
     return found
 
 
-def _os_path_bindings(tree: ast.AST) -> tuple[set[str], set[str]]:
-    """(bare names bound to os.path exists/isfile/isdir, names bound to the os.path module)."""
-    funcs: set[str] = set()
-    modules: set[str] = {"posixpath", "ntpath"}
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and node.level == 0:
-            if node.module in _OS_PATH_MODULES:
-                funcs.update(a.asname or a.name for a in node.names if a.name in _OS_PATH_FUNCS)
-            elif node.module == "os":
-                modules.update(a.asname or a.name for a in node.names if a.name == "path")
-        elif isinstance(node, ast.Import):
-            for a in node.names:
-                if a.name in _OS_PATH_MODULES and a.asname:
-                    modules.add(a.asname)
-    return funcs, modules
-
-
-def _is_os_path(expr: ast.expr, modules: set[str]) -> bool:
-    if isinstance(expr, ast.Name):
-        return expr.id in modules
-    return (
-        isinstance(expr, ast.Attribute)
-        and expr.attr == "path"
-        and isinstance(expr.value, ast.Name)
-        and expr.value.id == "os"
-    )
-
-
 def _check(tree: ast.AST, source: str, filename: str) -> list[Finding]:
-    funcs, modules = _os_path_bindings(tree)
+    imports = Imports(tree)
 
     def is_missing(test: ast.expr) -> bool:
         if not isinstance(test, ast.UnaryOp) or not isinstance(test.op, ast.Not):
@@ -143,8 +117,11 @@ def _check(tree: ast.AST, source: str, filename: str) -> list[Finding]:
             if func.attr in _PATHLIB_ATTRS:  # p.exists(), os.path.exists(p), p.is_file()
                 return True
             # isfile/isdir only through os.path — TarInfo.isfile() is a type check.
-            return func.attr in _OS_PATH_FUNCS and _is_os_path(func.value, modules)
-        return isinstance(func, ast.Name) and func.id in funcs
+            return func.attr in _OS_PATH_FUNCS and imports.attr_origin(func.value) in _OS_PATH_MODULES
+        if isinstance(func, ast.Name):
+            origin = imports.origin(func)  # scope-aware: a parameter `isfile` is not os.path's
+            return origin is not None and origin[0] in _OS_PATH_MODULES and origin[1] in _OS_PATH_FUNCS
+        return False
 
     return [
         Finding(rule=CODE, line=r.lineno, col=r.col_offset, message=MESSAGE, severity="hard-fail")

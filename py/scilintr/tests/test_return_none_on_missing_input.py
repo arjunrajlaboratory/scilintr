@@ -241,3 +241,35 @@ def test_cli_rejects_unknown_rule_codes(tmp_path, capsys, flag):
         main([flag, "return-none-on-empty-inputs", str(f)])
     assert exc.value.code == 2
     assert "return-none-on-empty-inputs" in capsys.readouterr().err
+
+
+# -------------------- codex review --------------------
+
+
+@pytest.mark.parametrize("test", ["not p.exists() and allow_missing", "allow_missing and not os.path.isfile(p)"])
+def test_missing_input_flags_mixed_conjunction(has_finding, test):
+    assert has_finding(_guard(test), MISSING)
+
+
+def test_empty_input_flags_mixed_conjunction():
+    assert any(f.rule == EMPTY for f in lint_code(_guard("df is None and optional"), rules=[EMPTY]))
+
+
+def test_missing_input_bare_import_shadowed_by_parameter(has_finding):
+    src = """
+from os.path import isfile
+
+def load(p, isfile):
+    if not isfile(p):
+        return None
+    return read(p)
+"""
+    assert not has_finding(src, MISSING)
+
+
+def test_missing_input_os_module_alias(has_finding):
+    assert has_finding(_guard("not operating_system.path.isfile(p)", prelude="import os as operating_system"), MISSING)
+
+
+def test_missing_input_from_os_import_path(has_finding):
+    assert has_finding(_guard("not path.isdir(p)", prelude="from os import path"), MISSING)
