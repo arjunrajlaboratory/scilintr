@@ -2,7 +2,9 @@
 
 The cardinal scitexlintr check: the human-readable snapshot in the second
 argument of every wrapper macro must agree with the value that the macro
-expands to. Drift = lint error. Auto-fixable via ``--write``.
+expands to — either the stored manifest value (``0.9653``) or, for an entry
+with a ``unit`` or ``display``, its rendered form (``96.5\\%``). Drift =
+lint error. Auto-fixable via ``--write``.
 
 HTML has no macro expansion, so the rendered text of a
 ``<span data-sci-val="id">…</span>`` wrapper *is* the snapshot. It must
@@ -14,10 +16,16 @@ from __future__ import annotations
 
 import html
 
-from scitexlintr._display import expected_html, parse_precision
+from scitexlintr._display import (
+    expected_html,
+    parse_precision,
+    rendered_tex,
+    tex_snapshot_matches_rendered,
+)
 from scitexlintr._doc import TexDoc, extract_macro_ref
 from scitexlintr._finding import Finding, Fix
 from scitexlintr._manifest import Manifest, values_equal_as_snapshot
+from scitexlintr._parser import WRAPPER_MACROS
 from scitexlintr._rules._base import Rule
 
 CODE = "snapshot-mismatch"
@@ -29,7 +37,7 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
     if doc.fmt == "html":
         return _check_html(doc, manifest)
     findings: list[Finding] = []
-    for wrapper_name in ("SciVal", "SciText"):
+    for wrapper_name in sorted(WRAPPER_MACROS):
         for call in doc.calls(wrapper_name):
             if len(call.args) < 2:
                 continue
@@ -38,7 +46,7 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
                 continue
             entry = manifest.by_macro.get(macro_name)
             if entry is None:
-                continue
+                continue  # unknown macros belong to unknown-value-id
             if entry.value is None:
                 # Null manifest values can't be compared. Skip the rule —
                 # emitting a Fix would otherwise rewrite the snapshot to
@@ -46,9 +54,29 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
                 continue
             snap_arg = call.args[1]
             snap_text = snap_arg.text
+            line, col = doc.lookup(snap_arg.start)
+            rendered = rendered_tex(entry)
+            if rendered is not None and rendered.problem is not None:
+                findings.append(Finding(
+                    rule=CODE, line=line, col=col, severity="error",
+                    message=f"cannot check snapshot for id={entry.id}: {rendered.problem}",
+                ))
+                continue
             if values_equal_as_snapshot(entry.value, snap_text):
                 continue
-            line, col = doc.lookup(snap_arg.start)
+            # A unit / display entry may also be snapshotted as it renders
+            # (``96.5\%`` for a stored 0.9653) — what the PDF shows.
+            if rendered is not None and tex_snapshot_matches_rendered(snap_text, rendered.text):
+                continue
+            # --write keeps the author's style: a rendered-looking snapshot
+            # (it has the unit's ``\%``) is rewritten to the rendered form.
+            keep_rendered = (
+                rendered is not None and entry.unit == "percent" and "\\%" in snap_text
+            )
+            replacement = rendered.text if keep_rendered else str(_format_for_fix(entry.value))
+            renders_as = (
+                f", which renders as {_quote(rendered.text)}" if rendered is not None else ""
+            )
             findings.append(
                 Finding(
                     rule=CODE,
@@ -56,14 +84,14 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
                     col=col,
                     message=(
                         f"snapshot {_quote(snap_text.strip())} for \\{macro_name} "
-                        f"disagrees with manifest value {_quote(entry.value)} "
+                        f"disagrees with manifest value {_quote(entry.value)}{renders_as} "
                         f"(id={entry.id})"
                     ),
                     severity="error",
                     fix=Fix(
                         start=snap_arg.start + 1,           # inside the brace
                         end=snap_arg.end - 1,
-                        replacement=str(_format_for_fix(entry.value)),
+                        replacement=replacement,
                     ),
                 )
             )

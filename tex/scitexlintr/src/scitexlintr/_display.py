@@ -110,6 +110,42 @@ def parse_precision(raw: str | None):
     return int(raw)
 
 
+def rendered_tex(entry) -> Expected | None:
+    """What a generated TeX macro expands to when that differs from the stored
+    value: the ``unit`` rendering (``96.5\\%``) or the ``display`` override.
+    ``None`` for a natural rendering; ``Expected.problem`` set when the entry's
+    ``unit`` / ``precision`` cannot be rendered."""
+    if entry.unit is not None:
+        try:
+            return Expected(text=derive_unit(entry.value, entry.unit, entry.precision,
+                                             percent_sign="\\%"), exact=True)
+        except ValueError as exc:
+            return Expected(text=None, exact=True, problem=str(exc))
+    if entry.display is not None:
+        return Expected(text=str(entry.display), exact=True)
+    return None
+
+
+_TEX_SPACING_RE = re.compile(r"\s+|~|\\[,;: ]|\\thinspace\b")
+
+
+def tex_snapshot_matches_rendered(snapshot: str, rendered: str) -> bool:
+    """True if ``snapshot`` spells the same rendered TeX as ``rendered``,
+    ignoring TeX spacing (``96.5\\,\\%``, ``96.5~\\%``) and, for a number,
+    trailing zeros (``96.50\\%``)."""
+    snap = _TEX_SPACING_RE.sub("", snapshot)
+    want = _TEX_SPACING_RE.sub("", rendered)
+    if snap == want:
+        return True
+    suffix = "\\%" if want.endswith("\\%") else ""
+    if suffix and not snap.endswith(suffix):
+        return False
+    try:
+        return Decimal(snap[: len(snap) - len(suffix)]) == Decimal(want[: len(want) - len(suffix)])
+    except InvalidOperation:
+        return False
+
+
 def expected_html(entry, precision_override: int | None = None) -> Expected:
     """Expected rendered text of an HTML wrapper for manifest ``entry``."""
     if precision_override is not None and entry.unit is None:

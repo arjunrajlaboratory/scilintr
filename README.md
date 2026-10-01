@@ -109,6 +109,11 @@ findings = lint_paths(["path/to/dir/"])
 pip install "scitexlintr>=0.2"   # from PyPI; the HTML frontend needs 0.2.0
 ```
 
+`scitexlintr` is a separate package with its own console script. Installing
+`scilintr` (the code linter) does not install it, and vice versa. A project
+that lints both code and reports installs both:
+`pip install scilintr scitexlintr`.
+
 CLI:
 
 ```bash

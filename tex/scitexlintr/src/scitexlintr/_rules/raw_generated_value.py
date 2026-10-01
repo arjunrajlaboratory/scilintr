@@ -12,7 +12,10 @@ agree: a token like ``0.730`` matches a manifest value of ``0.73``
 exact-string match would miss those, and because such a token also "has a
 manifest entry" it would slip past ``unsourced-numeric-token`` too —
 landing in neither rule, silently un-checked. Token boundaries still hold,
-so ``317`` does not match ``3175``. String values are matched verbatim —
+so ``317`` does not match ``3175``. A percent-suffixed token
+(``97.0\\%``) matching an integer value (usually a count) is reported at
+warning severity — most often a coincidental collision.
+String values are matched verbatim —
 short string values like ``"a"`` should not be added to manifests
 (false-positive risk), but the linter itself doesn't enforce a minimum
 length.
@@ -23,7 +26,7 @@ from __future__ import annotations
 import re
 
 from scitexlintr._display import derived_forms
-from scitexlintr._doc import TexDoc, phrase_pattern, skip_inline_space
+from scitexlintr._doc import TexDoc, phrase_pattern, skip_unit_space
 from scitexlintr._finding import Finding
 from scitexlintr._manifest import Manifest, values_equal_as_snapshot
 from scitexlintr._rules._base import Rule
@@ -39,19 +42,35 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
     # twice if two manifest entries share a value (e.g., n_control=24 and
     # n_treated=24 — we still want one finding per occurrence).
     seen_offsets: set[int] = set()
+    clashes: dict[int, Finding] = {}
 
     for entry in manifest.numbers:
         if entry.value is None:
             continue
-        for match_start, match_end, label in _find_value_matches(
+        for match_start, match_end, label, unit_clash in _find_value_matches(
             doc.stripped, entry.value, getattr(doc, "fmt", "tex")
         ):
             if not doc.in_prose(match_start):
                 continue
             if match_start in seen_offsets:
                 continue
-            seen_offsets.add(match_start)
             line, col = doc.lookup(match_start)
+            if unit_clash:
+                # ``97.0\%`` against an integer 97: usually a count colliding
+                # with an unrelated percentage — but an integer can also be a
+                # stored percent, so keep it visible at warning severity.
+                # Deferred: an error on the same token (another entry, or a
+                # rendered-form match below) must not be hidden behind it.
+                clashes.setdefault(match_start, Finding(
+                    rule=CODE, line=line, col=col, severity="warning",
+                    message=(
+                        f"percentage {label!r} equals integer manifest id={entry.id}; if it is "
+                        f"that value, wrap with {doc.wrap_hint(entry, label)}, otherwise it is "
+                        "likely a coincidental collision (waive it)"
+                    ),
+                ))
+                continue
+            seen_offsets.add(match_start)
             findings.append(
                 Finding(
                     rule=CODE,
@@ -74,7 +93,7 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
         number = m.group(0)
         if number not in by_number or not doc.in_prose(m.start()) or m.start() in seen_offsets:
             continue
-        after = skip_inline_space(doc.stripped, m.end())
+        after = skip_unit_space(doc.stripped, m.end(), getattr(doc, "fmt", "tex"))
         for entry, suffix in by_number[number]:
             if suffix and not doc.stripped.startswith(suffix, after):
                 continue
@@ -91,6 +110,7 @@ def _check(doc: TexDoc, manifest: Manifest | None) -> list[Finding]:
                 )
             )
             break
+    findings.extend(f for off, f in clashes.items() if off not in seen_offsets)
     return findings
 
 
@@ -104,13 +124,15 @@ _NUMERIC_TOKEN_RE = re.compile(
 
 
 def _find_value_matches(text: str, value: object, fmt: str = "tex"):
-    """Yield ``(start, end, label)`` for every occurrence of ``value`` in ``text``.
+    """Yield ``(start, end, label, unit_clash)`` for every occurrence of
+    ``value`` in ``text``.
 
     Numeric values are matched by scanning numeric tokens and comparing
     numerically (see ``values_equal_as_snapshot``), so trailing-zero,
     comma-grouped, and scientific-notation variants all match. Strings are
     matched verbatim with case-sensitivity (a case-insensitive match would
-    over-fire on common words).
+    over-fire on common words). ``unit_clash`` marks a percent-suffixed token
+    matching an integer value.
     """
     if isinstance(value, str):
         if not value:
@@ -119,14 +141,19 @@ def _find_value_matches(text: str, value: object, fmt: str = "tex"):
         # "WTF1" or "SWT", and "treated versus control" matches across a line
         # break or inline markup.
         for m in phrase_pattern(value, fmt).finditer(text):
-            yield m.start(), m.end(), value
+            yield m.start(), m.end(), value, False
         return
 
     if isinstance(value, (int, float)) and not isinstance(value, bool):
+        percent = "%" if fmt == "html" else "\\%"
         for m in _NUMERIC_TOKEN_RE.finditer(text):
             tok = m.group(0)
-            if values_equal_as_snapshot(value, tok):
-                yield m.start(), m.end(), tok
+            if not values_equal_as_snapshot(value, tok):
+                continue
+            unit_clash = isinstance(value, int) and text.startswith(
+                percent, skip_unit_space(text, m.end(), fmt)
+            )
+            yield m.start(), m.end(), tok, unit_clash
 
 
 rule = Rule(code=CODE, check=_check, requires_manifest=True)

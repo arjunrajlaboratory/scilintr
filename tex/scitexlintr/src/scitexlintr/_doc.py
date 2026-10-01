@@ -110,6 +110,18 @@ def skip_inline_space(text: str, i: int) -> int:
     return i
 
 
+_TEX_UNIT_SPACE_RE = re.compile(r"(?:[ \t~]|\\[,;: ]|\\thinspace\b\s*)*")
+
+
+def skip_unit_space(text: str, i: int, fmt: str = "tex") -> int:
+    """Offset past the spacing that may sit between a number and its unit:
+    spaces and tabs, plus in TeX ``~``, ``\\,``, ``\\;``, ``\\:``, ``\\ ``
+    and ``\\thinspace`` (``97\\,\\%``)."""
+    if fmt == "html":
+        return skip_inline_space(text, i)
+    return _TEX_UNIT_SPACE_RE.match(text, i).end()
+
+
 _MACRO_REF_RE = re.compile(r"^\s*\\([A-Za-z@]+)\s*$")
 
 

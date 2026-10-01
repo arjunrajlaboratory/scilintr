@@ -65,6 +65,20 @@ review.
 scitexlintr checks that **every snapshot equals the macro's current
 expansion**. Drift = lint error.
 
+For an entry with a `unit` or `display`, the snapshot may be either the stored
+value or its rendered form. Both of these pass for
+`{"value": 0.9653, "unit": "percent", "precision": 1}`:
+
+```latex
+\SciVal{\FracClaimsDated}{0.9653}   % stored value
+\SciVal{\FracClaimsDated}{96.5\%}   % rendered form (what the PDF shows)
+```
+
+The rendered form is compared ignoring TeX spacing and trailing zeros, so
+`96.5\,\%` and `96.50\%` both pass. `--write` keeps the author's style: a
+stale snapshot containing `\%` is rewritten to the rendered form, and any
+other stale snapshot to the stored value.
+
 ## The manifest
 
 scitexlintr expects a manifest JSON file describing the reportable
@@ -311,7 +325,8 @@ new_source, n_applied = apply_fixes(source_string, findings)
 | Rule | Severity | What it catches |
 |---|---|---|
 | `snapshot-mismatch` | error | `\SciVal{\Macro}{stale}` where the snapshot disagrees with the manifest value. Auto-fixable with `--write` (string values are TeX-escaped before writing; fixes that would erase a TeX comment inside the snapshot brace are skipped). |
-| `raw-generated-value` | error | A literal `48` or `"treated versus control"` in prose that matches a manifest value. Handles scientific notation (`1e-8` and `1e-08`) and comma-grouped integers (`15,122`). |
+| `raw-generated-value` | error | A literal `48` or `"treated versus control"` in prose that matches a manifest value. Handles scientific notation (`1e-8` and `1e-08`) and comma-grouped integers (`15,122`). A percent-suffixed literal (`97.0\%`) that equals an integer value (usually a count such as `97`) is only a **warning**, since it is most often a coincidental collision. |
+| `unknown-value-id` | error | `\SciVal{\NSmaples}{48}` whose macro no manifest entry generates. This usually happens when an entry is removed from the manifest but its wrapper stays in the report. Every other rule skips such a wrapper, and `pdflatex` stops on the undefined control sequence. Macros the document defines itself (`\newcommand`, `\def`) are not flagged. HTML: `<span data-sci-val="n_smaples">`. |
 | `bare-generated-macro` | warning | `\NSamples` used directly in prose without a `\SciVal` wrapper — fresh but unreviewable. Skips structural-macro args (`\label`, `\ref`, `\cite`, `\input`, …) just like the prose mask does for every other rule. |
 | `unwrapped-threshold` | error | `FDR < 0.05` in prose when `\FDRThreshold` exists in the manifest. Recognizes `<`, `>`, `<=`, `>=`, `\le`, `\leq`, `\ge`, `\geq`, `\ll`, `\gg`, and Unicode `≤ ≥ ≪ ≫`; numbers include scientific notation. |
 | `unfingerprinted-figure` | error | `\includegraphics{...}` referencing a path not in `manifest.figures[*]`. Forgiving in one direction: a tex-side extensionless path (`figures/foo`) matches a manifest-side `figures/foo.pdf`. |
@@ -319,11 +334,16 @@ new_source, n_applied = apply_fixes(source_string, findings)
 | `overloaded-term-no-warning` | warning | A term in `manifest.terms[*]` with `overloaded_warning` set, but the warning is absent both before the first use AND from the same sentence as the first use. A use is the term's `id` (case-sensitive), its `expansion`, or any spelling in an optional `match` list (case-insensitive). |
 | `forbidden-alias` | error | A manifest value used with one of its `label_aliases_forbidden` (e.g., calling `exact_accuracy` "accuracy"). Skips occurrences that are part of the canonical label. |
 
+`raw-generated-value` matches by number, not by meaning. A cell sourced from
+its own output file that happens to equal a registered value is still flagged.
+For example, a top-100 count of `22` collides with an unrelated registered
+`22`. Waive such cells, or wrap a sourced table in a region waiver (see
+[Waivers](#waivers)).
+
 ### HTML-only rules (require `--manifest`)
 
 | Rule | Severity | What it catches |
 |---|---|---|
-| `unknown-value-id` | error | `<span data-sci-val="n_smaples">` naming no manifest id. (TeX needs no such rule: an undefined macro stops compilation.) |
 | `unfingerprinted-data` | error | A `data-sci-data` block or `data-sci-table` whose id is not in `manifest.data[*]`, whose `data-sha256` disagrees, or whose content no longer matches its `data-content-sha256`; a data block that is not `type="application/json"` (the only type the runtime reads); any other non-JavaScript `<script>` holding content; or a `data-sci-interactive` figure with no registered data block. |
 | `script-data-literal` | warning | A bracketed literal with six or more numbers (flat arrays, point pairs, `{x, y}` objects; strings and comments ignored) typed into a report script other than the first `sci-report-runtime` block — interactive data belongs in a registered block. |
 
@@ -354,6 +374,30 @@ or up to four lines above the offending line:
 % ANALYSIS_OK[handwritten-numeric-claim]: discussion footnote citing Bagamery 2024 N=23, not a result of this analysis
 We mentioned 23 cells in passing, as in earlier work.
 ```
+
+How a waiver applies:
+
+- **Forward window only.** A waiver covers its own line and the four lines
+  after it. A waiver placed below a finding does not cover it.
+- **Rule-scoped.** A waiver applies only to the rule codes it names. To name
+  several rules, separate them with commas:
+  `% ANALYSIS_OK[raw-generated-value, unsourced-numeric-token]: …`.
+- **Region waivers** cover a whole block, such as a narrative timeline full
+  of years or a supplement table sourced from a named file:
+
+  ```latex
+  % ANALYSIS_OK_BEGIN[unsourced-numeric-token]: publication years in the timeline, not results
+  … any number of lines …
+  % ANALYSIS_OK_END[unsourced-numeric-token]
+  ```
+
+  The BEGIN line needs an explanation. `ANALYSIS_OK_END[rule]` closes the
+  innermost open region that names that rule. A bare `% ANALYSIS_OK_END`
+  closes the innermost region. Either form may carry trailing text
+  (`: end of table 3`). A BEGIN with no END waives nothing, so a missing
+  END shows up as findings instead of silently waiving the rest of the file.
+  To waive a rule for a whole file, put one region around the document body.
+  HTML uses the same syntax inside `<!-- … -->` comments.
 
 A useful waiver answers three questions:
 
@@ -492,7 +536,7 @@ tex/scitexlintr/
 cd tex/scitexlintr
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
-.venv/bin/pytest             # 214 tests
+.venv/bin/pytest
 .venv/bin/scitexlintr tests/data/report.tex --manifest=tests/data/manifest.json
 ```
 
